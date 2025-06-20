@@ -5,8 +5,8 @@
 
 #include "fpc.hpp"
 
-int WORK_GROUP_SZ = 25;
-int REPEAT = 5;
+int WORK_GROUP_SZ = 200;
+int REPEAT = 10;
 
 int main(int argc, char ** argv){
     do_fpc(WORK_GROUP_SZ,REPEAT);

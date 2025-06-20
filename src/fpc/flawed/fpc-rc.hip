@@ -2,7 +2,7 @@
 #include <stdlib.h> 
 #include <chrono>
 #include <hip/hip_runtime.h>
-#include "fpc-reference.hpp"
+#include "fpc-rc.hpp"
 typedef unsigned long ulong;
 
 __device__
@@ -63,7 +63,7 @@ unsigned f7(ulong value, bool* mask) {
 }
 
 __global__ void
-fpc_reference_kernel (const ulong* values, unsigned *cmp_size)
+fpc_rc_kernel (const ulong* values, unsigned *cmp_size)
 {
   __shared__ unsigned compressable;
   int lid = threadIdx.x;
@@ -104,17 +104,17 @@ fpc_reference_kernel (const ulong* values, unsigned *cmp_size)
   }
 
   if (lid == 0) compressable = 0;
-  __syncthreads();
+  //__syncthreads();BUG
 
   atomicAdd(&compressable, inc);
-  __syncthreads();
+  //__syncthreads();BUG
   if (lid == WGS-1) {
     atomicAdd(cmp_size, compressable);
   }
 }
 
 __global__ void
-fpc2_reference_kernel (const ulong* values, unsigned *cmp_size)
+fpc2_rc_kernel (const ulong* values, unsigned *cmp_size)
 {
   __shared__ unsigned compressable;
   int lid = threadIdx.x;
@@ -157,16 +157,16 @@ fpc2_reference_kernel (const ulong* values, unsigned *cmp_size)
 
 
   if (lid == 0) compressable = 0;
-  __syncthreads();
+  //__syncthreads(); BUG
 
   atomicAdd(&compressable, inc);
-  __syncthreads();
+  //__syncthreads(); BUG
   if (lid == WGS-1) {
     atomicAdd(cmp_size, compressable);
   }
 }
 
-void fpc_reference(const ulong* values, unsigned *cmp_size_hw, const int values_size, const int wgs)
+void fpc_rc(const ulong* values, unsigned *cmp_size_hw, const int values_size, const int wgs)
 {
   *cmp_size_hw = 0;
   ulong* d_values;
@@ -179,14 +179,14 @@ void fpc_reference(const ulong* values, unsigned *cmp_size_hw, const int values_
   dim3 grids (values_size/wgs);
   dim3 threads (wgs);
 
-  hipLaunchKernelGGL(fpc_reference_kernel, grids, threads, 0, 0, d_values, d_cmp_size);
+  hipLaunchKernelGGL(fpc_rc_kernel, grids, threads, 0, 0, d_values, d_cmp_size);
 
   hipMemcpy(cmp_size_hw, d_cmp_size, sizeof(unsigned), hipMemcpyDeviceToHost);
   hipFree(d_values);
   hipFree(d_cmp_size);
 }
 
-void fpc2_reference(const ulong* values, unsigned *cmp_size_hw, const int values_size, const int wgs)
+void fpc2_rc(const ulong* values, unsigned *cmp_size_hw, const int values_size, const int wgs)
 {
   *cmp_size_hw = 0;
   ulong* d_values;
@@ -199,7 +199,7 @@ void fpc2_reference(const ulong* values, unsigned *cmp_size_hw, const int values
   dim3 grids (values_size/wgs);
   dim3 threads (wgs);
 
-  hipLaunchKernelGGL(fpc2_reference_kernel, grids, threads, 0, 0, d_values, d_cmp_size);
+  hipLaunchKernelGGL(fpc2_rc_kernel, grids, threads, 0, 0, d_values, d_cmp_size);
 
   hipMemcpy(cmp_size_hw, d_cmp_size, sizeof(unsigned), hipMemcpyDeviceToHost);
   hipFree(d_values);
