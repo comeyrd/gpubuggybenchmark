@@ -1,9 +1,10 @@
 #ifndef FPC
 #define FPC
-typedef unsigned long ulong;
 #include <unordered_map>
 #include <string>
 #include <memory>
+
+typedef unsigned long ulong;
 
 class IFpc{
     public: 

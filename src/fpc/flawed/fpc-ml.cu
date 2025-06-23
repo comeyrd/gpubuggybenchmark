@@ -1,9 +1,9 @@
 #include <stdio.h>      /* defines printf for tests */
 #include <stdlib.h> 
 #include <chrono>
-#include <hip/hip_runtime.h>
+#include <cuda.h>
 #include "fpc-ml.hpp"
-namespace{
+namespace {
 __device__
 unsigned my_abs ( int x )
 {
@@ -170,19 +170,19 @@ void fpc_ml(const ulong* values, unsigned *cmp_size_hw, const int values_size, c
   *cmp_size_hw = 0;
   ulong* d_values;
   unsigned* d_cmp_size;
-  hipMalloc((void**)&d_values, values_size*sizeof(ulong));
-  hipMemcpy(d_values, values, values_size*sizeof(ulong), hipMemcpyHostToDevice);
-  hipMalloc((void**)&d_cmp_size, sizeof(unsigned));
-  hipMemcpy(d_cmp_size, cmp_size_hw, sizeof(unsigned), hipMemcpyHostToDevice);
+  cudaMalloc((void**)&d_values, values_size*sizeof(ulong));
+  cudaMemcpy(d_values, values, values_size*sizeof(ulong), cudaMemcpyHostToDevice);
+  cudaMalloc((void**)&d_cmp_size, sizeof(unsigned));
+  cudaMemcpy(d_cmp_size, cmp_size_hw, sizeof(unsigned), cudaMemcpyHostToDevice);
 
   dim3 grids (values_size/wgs);
   dim3 threads (wgs);
 
-  hipLaunchKernelGGL(fpc_ml_kernel, grids, threads, 0, 0, d_values, d_cmp_size);
+  fpc_ml_kernel<<<grids, threads>>>(d_values, d_cmp_size);
 
-  hipMemcpy(cmp_size_hw, d_cmp_size, sizeof(unsigned), hipMemcpyDeviceToHost);
-  //hipFree(d_values); BUG 
-  hipFree(d_cmp_size);
+  cudaMemcpy(cmp_size_hw, d_cmp_size, sizeof(unsigned), cudaMemcpyDeviceToHost);
+  //cudaFree(d_values); BUG
+  cudaFree(d_cmp_size);
 }
 
 void fpc2_ml(const ulong* values, unsigned *cmp_size_hw, const int values_size, const int wgs)
@@ -190,17 +190,17 @@ void fpc2_ml(const ulong* values, unsigned *cmp_size_hw, const int values_size, 
   *cmp_size_hw = 0;
   ulong* d_values;
   unsigned* d_cmp_size;
-  hipMalloc((void**)&d_values, values_size*sizeof(ulong));
-  hipMemcpy(d_values, values, values_size*sizeof(ulong), hipMemcpyHostToDevice);
-  hipMalloc((void**)&d_cmp_size, sizeof(unsigned));
-  hipMemcpy(d_cmp_size, cmp_size_hw, sizeof(unsigned), hipMemcpyHostToDevice);
+  cudaMalloc((void**)&d_values, values_size*sizeof(ulong));
+  cudaMemcpy(d_values, values, values_size*sizeof(ulong), cudaMemcpyHostToDevice);
+  cudaMalloc((void**)&d_cmp_size, sizeof(unsigned));
+  cudaMemcpy(d_cmp_size, cmp_size_hw, sizeof(unsigned), cudaMemcpyHostToDevice);
 
   dim3 grids (values_size/wgs);
   dim3 threads (wgs);
 
-  hipLaunchKernelGGL(fpc2_ml_kernel, grids, threads, 0, 0, d_values, d_cmp_size);
+  fpc2_ml_kernel<<<grids, threads>>>(d_values, d_cmp_size);
 
-  hipMemcpy(cmp_size_hw, d_cmp_size, sizeof(unsigned), hipMemcpyDeviceToHost);
-  //hipFree(d_values); BUG
-  hipFree(d_cmp_size);
+  cudaMemcpy(cmp_size_hw, d_cmp_size, sizeof(unsigned), cudaMemcpyDeviceToHost);
+  //cudaFree(d_values); BUG
+  cudaFree(d_cmp_size);
 }

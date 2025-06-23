@@ -1,8 +1,7 @@
 #include <stdio.h>      /* defines printf for tests */
 #include <stdlib.h> 
 #include <chrono>
-
-typedef unsigned long ulong;
+#include "fpc-reference.hpp"
 
 unsigned my_abs_cpu( int x )
 {

@@ -3,8 +3,7 @@
 #include <chrono>
 #include <hip/hip_runtime.h>
 #include "fpc-reference.hpp"
-typedef unsigned long ulong;
-
+namespace{
 __device__
 unsigned my_abs ( int x )
 {
@@ -61,7 +60,7 @@ unsigned f7(ulong value, bool* mask) {
   *mask = 1;
   return 4;
 }
-
+}
 __global__ void
 fpc_reference_kernel (const ulong* values, unsigned *cmp_size)
 {
