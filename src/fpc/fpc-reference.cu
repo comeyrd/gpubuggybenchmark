@@ -205,3 +205,4 @@ void fpc2_reference(const ulong* values, unsigned *cmp_size_hw, const int values
   cudaFree(d_values);
   cudaFree(d_cmp_size);
 }
+REGISTER_FPC(ReferenceFpc)
