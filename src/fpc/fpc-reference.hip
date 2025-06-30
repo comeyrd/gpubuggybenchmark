@@ -204,4 +204,4 @@ void fpc2_reference(const ulong* values, unsigned *cmp_size_hw, const int values
   hipFree(d_values);
   hipFree(d_cmp_size);
 }
-REGISTER_FPC(ReferenceFpc)
+REGISTER_CLASS(IFpc,ReferenceFpc)

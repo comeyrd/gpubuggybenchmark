@@ -37,7 +37,7 @@ void do_fpc(int work_group_sz, int repeat){
   unsigned values_size = size / step;
 
   unsigned cmp_size = fpc_cpu(values, values_size);
-  Kernel_umap kernels = FPCManager::instance()->getKernels();
+  kernel_umap<IFpc> kernels = Manager<IFpc>::instance()->getKernels();
 
   for (const auto &[name, k_func] : kernels) {
     std::cout <<" Doing Kernel "<< name << std::endl;
@@ -95,3 +95,4 @@ void run_fpc_impl(std::shared_ptr<IFpc> fpc_impl, ulong* values, unsigned values
   printf("%s\n", ok ? "PASS" : "FAIL");
 
 }
+REGISTER_CLASS(IKernel,IFpc);

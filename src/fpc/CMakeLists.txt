@@ -63,4 +63,4 @@ elseif(BUILD_WITH_METAL)
 
 endif()
 
-target_include_directories(fpc PUBLIC ${FPC_DIR} ${FPC_DIR}/flawed)
+target_include_directories(fpc PUBLIC ${FPC_DIR} ${FPC_DIR}/flawed ${CMAKE_SOURCE_DIR}/include)
