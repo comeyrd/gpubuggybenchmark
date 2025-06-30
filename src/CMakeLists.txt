@@ -26,5 +26,5 @@ endif()
 add_subdirectory(fpc)
 add_executable(gpubuggy main.cpp)
 
-include_directories(${CMAKE_CURRENT_SOURCE_DIR})
+target_include_directories(gpubuggy PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
 target_link_libraries(gpubuggy PUBLIC fpc)

@@ -2,7 +2,7 @@
 #include <stdio.h>   
 #include <stdlib.h> 
 #include <chrono>
-
+#include "main.hpp"
 #include "fpc.hpp"
 
 int WORK_GROUP_SZ = 200;
