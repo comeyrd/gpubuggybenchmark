@@ -51,15 +51,12 @@ endif()
 add_subdirectory(fpc)
 add_executable(gpubuggy main.cpp)
 
-target_if(APPLE)
+if(APPLE)
  add_dependencies(gpubuggy fpc)
     target_link_libraries(gpubuggy PRIVATE "-Wl,-all_load" fpc  )
 
 elseif(UNIX)
     # Linux: whole-archive using target name (no path needed)
-    target_link_libraries(gpubuggy
-        "-Wl,--whole-archive"
-        fpc
-    )
+    target_link_libraries(gpubuggy PRIVATE "-Wl,--whole-archive" fpc "-Wl,--no-whole-archive")
 endif()
-include_directories(gpubuggy PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+target_include_directories(gpubuggy PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
