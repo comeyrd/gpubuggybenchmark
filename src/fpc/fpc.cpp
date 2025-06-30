@@ -6,7 +6,6 @@
 #include <iostream>
 
 #include "fpc.hpp"
-#include "flawed.hpp"
 ulong* convertBuffer2Array (char *cbuffer, unsigned size, unsigned step)
 {
   unsigned i,j; 
@@ -38,7 +37,7 @@ void do_fpc(int work_group_sz, int repeat){
   unsigned values_size = size / step;
 
   unsigned cmp_size = fpc_cpu(values, values_size);
-  Kernel_umap kernels = retrieve_kernels();
+  Kernel_umap kernels = FPCManager::instance()->getKernels();
 
   for (const auto &[name, k_func] : kernels) {
     std::cout <<" Doing Kernel "<< name << std::endl;

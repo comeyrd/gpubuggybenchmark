@@ -9,3 +9,5 @@ FPC from the HeCBench, but originally from here :
 FPDC from the HeCBench, but originally from here : [GFC](https://userweb.cs.txstate.edu/~burtscher/research/GFC/)
 
 LZSS from the HeCBench, but originally from here : [GPULZ](https://github.com/hpdps-group/ICS23-GPULZ)
+
+Support for METAL and mac works if the metal-cpp headers are in path : [metal-cpp](https://developer.apple.com/metal/cpp/)

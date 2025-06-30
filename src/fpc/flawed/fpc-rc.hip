@@ -204,3 +204,6 @@ void fpc2_rc(const ulong* values, unsigned *cmp_size_hw, const int values_size, 
   hipFree(d_values);
   hipFree(d_cmp_size);
 }
+REGISTER_FPC(RCFpc)
+
+
