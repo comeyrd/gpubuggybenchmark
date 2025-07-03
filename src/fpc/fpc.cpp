@@ -4,8 +4,8 @@
 #include <chrono>
 #include <memory>
 #include <iostream>
-
 #include "fpc.hpp"
+
 ulong* convertBuffer2Array (char *cbuffer, unsigned size, unsigned step)
 {
   unsigned i,j; 
@@ -20,33 +20,6 @@ ulong* convertBuffer2Array (char *cbuffer, unsigned size, unsigned step)
     }
   }
   return values;
-}
-
-void do_fpc(int work_group_sz, int repeat){
-
-  const int step = 4;
-  const size_t size = (size_t)work_group_sz * work_group_sz * work_group_sz;
-  char* cbuffer = (char*) malloc (size * step);
-
-  srand(2);
-  for (size_t i = 0; i < size*step; i++) {
-    cbuffer[i] = 0xFF << (rand() % 256);
-  }
-
-  ulong *values = convertBuffer2Array (cbuffer, size, step);
-  unsigned values_size = size / step;
-
-  unsigned cmp_size = fpc_cpu(values, values_size);
-  kernel_umap<IFpc> kernels = Manager<IFpc>::instance()->getKernels();
-
-  for (const auto &[name, k_func] : kernels) {
-    std::cout <<" Doing Kernel "<< name << std::endl;
-    run_fpc_impl(k_func,values,values_size,cmp_size, work_group_sz, repeat);
-  }
-
-
-  free(values);
-  free(cbuffer);
 }
 
 
@@ -95,4 +68,66 @@ void run_fpc_impl(std::shared_ptr<IFpc> fpc_impl, ulong* values, unsigned values
   printf("%s\n", ok ? "PASS" : "FAIL");
 
 }
-REGISTER_CLASS(IKernel,IFpc);
+
+void FPC::register_cli_options(argparse::ArgumentParser& parser) {
+  auto &group = parser.add_mutually_exclusive_group(true);
+  group.add_argument("-a", "--all").flag();
+  group.add_argument("-v", "--version").nargs(argparse::nargs_pattern::at_least_one);
+  group.add_argument("--list-versions").flag();
+  parser.add_argument("--repetitions", "-r").default_value(5);
+};
+
+void FPC::run_versions(std::vector<std::string> versions, const argparse::ArgumentParser& parsed_args){
+  class_umap<IFpc> versions_map = select_versions_in_umap(versions,Manager<IFpc>::instance()->getClasses());
+  bool all_set = parsed_args.get<bool>("--all");
+  bool list_set = parsed_args.get<bool>("--list-versions");
+  int repetitions = parsed_args.get<int>("--repetitions");
+
+
+  if(list_set){
+    std::cout << "Versions of FPC" << std::endl;
+    for(const auto& version : this->list_versions()){
+      std::cout << version << std::endl;
+    }
+  }else if(all_set){
+      class_umap<IFpc> versions = Manager<IFpc>::instance()->getClasses();
+      
+  }
+}
+
+std::vector<std::string> FPC::list_versions(){
+  class_umap<IFpc> versions = Manager<IFpc>::instance()->getClasses();
+  std::vector<std::string> vs;
+  for(const auto &[name, _ ] : versions){
+    vs.push_back(name);
+  }
+  return vs;
+}
+
+void FPC::execute_kernel(class_umap<IFpc> versions,int repetitions){
+
+  const int step = 4;
+  const size_t size = (size_t)WORK_GROUP_SZ * WORK_GROUP_SZ * WORK_GROUP_SZ;
+  char* cbuffer = (char*) malloc (size * step);
+
+  srand(2);
+  for (size_t i = 0; i < size*step; i++) {
+    cbuffer[i] = 0xFF << (rand() % 256);
+  }
+
+  ulong *values = convertBuffer2Array (cbuffer, size, step);
+  unsigned values_size = size / step;
+
+  unsigned cmp_size = fpc_cpu(values, values_size);
+
+  for (const auto &[name, k_func] : versions) {
+    std::cout <<" Kernel "<< name << std::endl;
+    run_fpc_impl(k_func,values,values_size,cmp_size, WORK_GROUP_SZ, repetitions);
+    std::cout << std::endl;
+  }
+
+  free(values);
+  free(cbuffer);
+}
+
+REGISTER_CLASS(IKernel,FPC);

@@ -2,4 +2,5 @@
 #define MAIN_H
 #include "version.hpp"
 #include "Manager.hpp"
+#include "Kernel.hpp"
 #endif

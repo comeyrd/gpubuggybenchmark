@@ -1,11 +1,13 @@
-#ifndef FPC
-#define FPC
+#ifndef FPC_H
+#define FPC_H
 #include <memory>
 #include <string>
 #include <unordered_map>
 #include "Manager.hpp"
+#include "Kernel.hpp"
 
 typedef unsigned long ulong;
+int WORK_GROUP_SZ = 200;
 
 class IFpc {
 public:
@@ -17,6 +19,16 @@ public:
 ulong *convertBuffer2Array(char *cbuffer, unsigned size, unsigned step);
 void do_fpc(int work_groupe_sz, int repeat);
 void run_fpc_impl(std::shared_ptr<IFpc> fpc_impl, ulong *values, unsigned values_size, int cmp_size, int work_group_sz, int repeat);
+
+
+class FPC : public IKernel{
+    public:
+        void register_cli_options(argparse::ArgumentParser& parser) override;
+        std::vector<std::string> list_versions() override;
+        void run_versions(std::vector<std::string> versions, const argparse::ArgumentParser& parsed_args) override; 
+    private : 
+        void execute_kernel(class_umap<IFpc> versions,int repetitions);
+};
 
 
 #endif

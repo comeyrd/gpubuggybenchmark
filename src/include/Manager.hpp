@@ -1,36 +1,49 @@
 #ifndef MANAGER_HPP
 #define MANAGER_HPP
-
+#include <iostream>
 //TODO Create an Interface that could be implemented by the "kernel manager" for each type of kernel
 
-template <class _Tp> using kernel_umap = std::unordered_map<std::string, std::shared_ptr<_Tp>>;
+template <class _Tp> using class_umap = std::unordered_map<std::string, std::shared_ptr<_Tp>>;
+
+template <class _Tp > class_umap<_Tp> select_versions_in_umap(const std::vector<std::string>& keys, const class_umap<_Tp>& input_map){
+    class_umap<_Tp> result;
+    for (const auto &key : keys){
+        if (input_map.find(key) != input_map.end()) {
+            result[key] = input_map.at(key);
+        }else{
+            std::cerr << "Version " << key << " not found" << std::endl;
+        }
+    }
+    return result;
+}
 
 template<class _Tp> class Manager{
     private:
-         kernel_umap<_Tp> _kernels;
+         class_umap<_Tp> _classes;
     public:
     
         static Manager* instance(){
             static Manager manager;
             return &manager;
         }
-        const kernel_umap<_Tp> &getKernels(){
-            return _kernels;
+        const class_umap<_Tp> &getClasses(){
+            return _classes;
         };
 
-        void registerKernel(const std::string& name, std::shared_ptr<_Tp> kernel){
-            _kernels[name] = kernel;
+        void register_class(const std::string& name, std::shared_ptr<_Tp> impl){
+            _classes[name] = impl;
         };
         
 };
 
-#define REGISTER_CLASS(InterfaceName,ClassName) \
-    namespace { \
-        struct ClassName##AutoRegister { \
-            ClassName##AutoRegister() { \
-                Manager<InterfaceName>::instance()->registerKernel(#ClassName, std::make_shared<ClassName>()); \
-            } \
-        }; \
-        static ClassName##AutoRegister global_##ClassName##AutoRegister; \
-}
+template<class _Int, class _Impl> class Registrar{
+    public:
+    Registrar(const std::string& name){
+        Manager<_Int>::instance()->register_class(name,std::make_shared<_Impl>());
+    }
+};
+
+#define REGISTER_CLASS(Interface, Class) \
+    static Registrar<Interface, Class> _registrar_##Class(#Class)
+
 #endif

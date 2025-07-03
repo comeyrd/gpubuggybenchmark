@@ -51,12 +51,20 @@ endif()
 add_subdirectory(fpc)
 add_executable(gpubuggy main.cpp)
 
-if(APPLE)
- add_dependencies(gpubuggy fpc)
-    target_link_libraries(gpubuggy PRIVATE "-Wl,-all_load" fpc  )
+include(FetchContent)
+FetchContent_Declare(
+  argparse
+  GIT_REPOSITORY https://github.com/p-ranav/argparse.git
+  GIT_TAG        v3.2
+)
+FetchContent_MakeAvailable(argparse)
 
+if(APPLE)
+    add_dependencies(gpubuggy fpc)
+    target_link_libraries(gpubuggy PRIVATE argparse "-Wl,-all_load" fpc)
 elseif(UNIX)
     # Linux: whole-archive using target name (no path needed)
-    target_link_libraries(gpubuggy PRIVATE "-Wl,--whole-archive" fpc "-Wl,--no-whole-archive")
+    target_link_libraries(gpubuggy PRIVATE argparse "-Wl,--whole-archive" fpc "-Wl,--no-whole-archive")
 endif()
+
 target_include_directories(gpubuggy PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
