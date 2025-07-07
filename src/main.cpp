@@ -46,9 +46,9 @@ int main(int argc, char **argv) {
 
 void list_kernels() {
     class_umap<IKernel> kernels = Manager<IKernel>::instance()->getClasses();
-    
+    std::cout << "Available Kernels :  "<<std::endl;
     for (const kernel_pair &pair : kernels) {
-        std::cout << "Kernel " << pair.first << std::endl;
+        std::cout << pair.first << std::endl;
     }
 }
 

@@ -102,7 +102,7 @@ int FPC::run_kernel(int argc, char** argv){
   
 
   if(list_set){
-    std::cout << "Versions of FPC" << std::endl;
+    std::cout << "Versions of FPC :" << std::endl;
     for(const auto& version : this->list_versions()){
       std::cout << version << std::endl;
     }
