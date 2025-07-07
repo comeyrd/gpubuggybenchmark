@@ -5,14 +5,18 @@ set(FPC_COMMON_SRC
     ${FPC_DIR}/fpc.cpp
 )
 
+set(FPC_LIB_TO_LINK argparse)
+
 if(BUILD_WITH_CUDA)
     file(GLOB FLAWED_CUDA "${FPC_DIR}/*.cu" "${FPC_DIR}/flawed/*.cu")
     add_library(fpc STATIC ${FPC_COMMON_SRC} ${FLAWED_CUDA})    
     set_target_properties(fpc PROPERTIES CUDA_ARCHITECTURES 70)
+    target_link_libraries(fpc ${FPC_LIB_TO_LINK})
 
 elseif(BUILD_WITH_HIP)
     file(GLOB FLAWED_CUDA "${FPC_DIR}/*.hip" "${FPC_DIR}/flawed/*.hip")
     add_library(fpc STATIC ${FPC_COMMON_SRC} ${FLAWED_CUDA})
+    target_link_libraries(fpc ${FPC_LIB_TO_LINK})
     
 elseif(BUILD_WITH_METAL)
     # Find all .metal shader files

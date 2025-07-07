@@ -63,7 +63,6 @@ if(APPLE)
     add_dependencies(gpubuggy fpc)
     target_link_libraries(gpubuggy PRIVATE argparse "-Wl,-all_load" fpc)
 elseif(UNIX)
-    # Linux: whole-archive using target name (no path needed)
     target_link_libraries(gpubuggy PRIVATE argparse "-Wl,--whole-archive" fpc "-Wl,--no-whole-archive")
 endif()
 

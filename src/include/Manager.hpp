@@ -1,9 +1,13 @@
 #ifndef MANAGER_HPP
 #define MANAGER_HPP
 #include <iostream>
-//TODO Create an Interface that could be implemented by the "kernel manager" for each type of kernel
+#include <vector>
+#include <unordered_map>
+#include <memory>
 
 template <class _Tp> using class_umap = std::unordered_map<std::string, std::shared_ptr<_Tp>>;
+
+template<class _Tp> using class_pair = std::pair<std::string,std::shared_ptr<_Tp>>;
 
 template <class _Tp > class_umap<_Tp> select_versions_in_umap(const std::vector<std::string>& keys, const class_umap<_Tp>& input_map){
     class_umap<_Tp> result;
@@ -44,6 +48,6 @@ template<class _Int, class _Impl> class Registrar{
 };
 
 #define REGISTER_CLASS(Interface, Class) \
-    static Registrar<Interface, Class> _registrar_##Class(#Class)
+    static Registrar<Interface, Class> _registrar_##Class(#Class);
 
 #endif

@@ -5,9 +5,10 @@
 #include <unordered_map>
 #include "Manager.hpp"
 #include "Kernel.hpp"
+#include "version.hpp"
 
 typedef unsigned long ulong;
-int WORK_GROUP_SZ = 200;
+constexpr int WORK_GROUP_SZ = 200;
 
 class IFpc {
 public:
@@ -23,11 +24,11 @@ void run_fpc_impl(std::shared_ptr<IFpc> fpc_impl, ulong *values, unsigned values
 
 class FPC : public IKernel{
     public:
+        int run_kernel(int argc,char** argv);
+    private : 
+        void run_versions(class_umap<IFpc> versions,int repetitions);
         void register_cli_options(argparse::ArgumentParser& parser) override;
         std::vector<std::string> list_versions() override;
-        void run_versions(std::vector<std::string> versions, const argparse::ArgumentParser& parsed_args) override; 
-    private : 
-        void execute_kernel(class_umap<IFpc> versions,int repetitions);
 };
 
 

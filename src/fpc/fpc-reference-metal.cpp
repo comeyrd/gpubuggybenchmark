@@ -107,4 +107,4 @@ void fpc_reference(const ulong* values, unsigned* cmp_size_hw, int values_size, 
 void fpc2_reference(const ulong* values, unsigned* cmp_size_hw, int values_size, int wgs) {
     runKernel("fpc2_reference_kernel", values, cmp_size_hw, values_size, wgs);
 }
-REGISTER_CLASS(IFpc,ReferenceFpc);
+REGISTER_CLASS(IFpc,ReferenceFpc)

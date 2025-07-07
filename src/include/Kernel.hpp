@@ -5,9 +5,13 @@
 class IKernel{
     public:
         virtual ~IKernel() = default;
+        virtual int run_kernel(int argc,char** argv) = 0;
+    private: 
         virtual void register_cli_options(argparse::ArgumentParser& parser) = 0;
         virtual std::vector<std::string> list_versions() = 0;
-        virtual void run_versions(std::vector<std::string> versions, const argparse::ArgumentParser& parsed_args) = 0;
 };
+
+typedef class_pair<IKernel> kernel_pair ;
+
 
 #endif

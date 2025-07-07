@@ -73,16 +73,33 @@ void FPC::register_cli_options(argparse::ArgumentParser& parser) {
   auto &group = parser.add_mutually_exclusive_group(true);
   group.add_argument("-a", "--all").flag();
   group.add_argument("-v", "--version").nargs(argparse::nargs_pattern::at_least_one);
-  group.add_argument("--list-versions").flag();
+  group.add_argument("-lv","--list-versions").flag();
   parser.add_argument("--repetitions", "-r").default_value(5);
 };
 
-void FPC::run_versions(std::vector<std::string> versions, const argparse::ArgumentParser& parsed_args){
-  class_umap<IFpc> versions_map = select_versions_in_umap(versions,Manager<IFpc>::instance()->getClasses());
-  bool all_set = parsed_args.get<bool>("--all");
-  bool list_set = parsed_args.get<bool>("--list-versions");
-  int repetitions = parsed_args.get<int>("--repetitions");
 
+int FPC::run_kernel(int argc, char** argv){
+   if(argc < 2){
+    std::cerr << "Not enough arguments"<<std::endl;
+    return 1;
+  }
+  std::string name = std::string(argv[0]) + " " + argv[1];
+  argparse::ArgumentParser fpc_parser(name,VERSION_STRING);
+  this->register_cli_options(fpc_parser);
+  
+    try {
+        fpc_parser.parse_known_args(argc,argv);
+    } catch (const std::exception &err) {
+        std::cerr << err.what() << std::endl;
+        std::cerr << fpc_parser;
+        return 1;
+    }
+
+  bool all_set = fpc_parser.get<bool>("--all");
+  bool list_set = fpc_parser.get<bool>("--list-versions");
+  int repetitions = fpc_parser.get<int>("--repetitions");
+  bool versions_set = fpc_parser.is_used("-v");
+  
 
   if(list_set){
     std::cout << "Versions of FPC" << std::endl;
@@ -90,9 +107,17 @@ void FPC::run_versions(std::vector<std::string> versions, const argparse::Argume
       std::cout << version << std::endl;
     }
   }else if(all_set){
-      class_umap<IFpc> versions = Manager<IFpc>::instance()->getClasses();
-      
+      class_umap<IFpc> versions_map = Manager<IFpc>::instance()->getClasses();
+      this->run_versions(versions_map,repetitions);
+  }else if(versions_set){
+    std::vector<std::string> versions =  fpc_parser.get<std::vector<std::string>>("-v");
+    class_umap<IFpc> versions_map = select_versions_in_umap(versions,Manager<IFpc>::instance()->getClasses());
+    this->run_versions(versions_map,repetitions);
+  }else{
+    std::cout <<fpc_parser<<std::endl;
+    return 1;
   }
+  return 0;
 }
 
 std::vector<std::string> FPC::list_versions(){
@@ -104,7 +129,7 @@ std::vector<std::string> FPC::list_versions(){
   return vs;
 }
 
-void FPC::execute_kernel(class_umap<IFpc> versions,int repetitions){
+void FPC::run_versions(class_umap<IFpc> versions,int repetitions){
 
   const int step = 4;
   const size_t size = (size_t)WORK_GROUP_SZ * WORK_GROUP_SZ * WORK_GROUP_SZ;
@@ -130,4 +155,4 @@ void FPC::execute_kernel(class_umap<IFpc> versions,int repetitions){
   free(cbuffer);
 }
 
-REGISTER_CLASS(IKernel,FPC);
+REGISTER_CLASS(IKernel,FPC)
