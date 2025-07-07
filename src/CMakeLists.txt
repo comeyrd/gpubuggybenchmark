@@ -49,6 +49,7 @@ else()
     endif()
 endif()
 add_subdirectory(fpc)
+add_subdirectory(accuracy)
 add_executable(gpubuggy main.cpp)
 
 include(FetchContent)
@@ -59,11 +60,14 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(argparse)
 
+set(KERNELS_TO_LINK fpc accuracy)
+
+
 if(APPLE)
     add_dependencies(gpubuggy fpc)
-    target_link_libraries(gpubuggy PRIVATE argparse "-Wl,-all_load" fpc)
+    target_link_libraries(gpubuggy PRIVATE argparse "-Wl,-all_load" ${KERNELS_TO_LINK})
 elseif(UNIX)
-    target_link_libraries(gpubuggy PRIVATE argparse "-Wl,--whole-archive" fpc "-Wl,--no-whole-archive")
+    target_link_libraries(gpubuggy PRIVATE argparse "-Wl,--whole-archive" ${KERNELS_TO_LINK} "-Wl,--no-whole-archive")
 endif()
 
 target_include_directories(gpubuggy PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)

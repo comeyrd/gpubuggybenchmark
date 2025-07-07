@@ -61,7 +61,7 @@ elseif(BUILD_WITH_METAL)
     # Ensure Metal kernel libs are built before fpc target
     add_custom_target(metal_kernels ALL DEPENDS ${METAL_LIBS})
     add_dependencies(fpc metal_kernels)
-    target_link_libraries(fpc PUBLIC "-framework Metal" argparse)
+    target_link_libraries(fpc PUBLIC "-framework Metal" ${ACCURACY_LIB_TO_LINK})
 
 endif()
 
