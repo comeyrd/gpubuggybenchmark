@@ -1,7 +1,6 @@
 set(ACCURACY_DIR ${CMAKE_SOURCE_DIR}/accuracy)
 
 set(ACCURACY_COMMON_SRC
-    ${ACCURACY_DIR}/acc-cpu.cpp
     ${ACCURACY_DIR}/accuracy.cpp
 )
 

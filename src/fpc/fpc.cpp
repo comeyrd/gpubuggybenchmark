@@ -23,7 +23,7 @@ ulong* convertBuffer2Array (char *cbuffer, unsigned size, unsigned step)
 }
 
 
-void run_fpc_impl(std::shared_ptr<IFpc> fpc_impl, ulong* values, unsigned values_size, int cmp_size, int work_group_sz, int repeat){
+void FPC::run_impl(std::shared_ptr<IFpc> fpc_impl, ulong* values, unsigned values_size, int cmp_size, int work_group_sz, int repeat){
 
 // run on the device
   unsigned cmp_size_hw; 
@@ -147,7 +147,7 @@ void FPC::run_versions(class_umap<IFpc> versions,int repetitions){
 
   for (const auto &[name, k_func] : versions) {
     std::cout <<" Kernel "<< name << std::endl;
-    run_fpc_impl(k_func,values,values_size,cmp_size, WORK_GROUP_SZ, repetitions);
+    this->run_impl(k_func,values,values_size,cmp_size, WORK_GROUP_SZ, repetitions);
     std::cout << std::endl;
   }
 

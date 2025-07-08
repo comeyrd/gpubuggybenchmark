@@ -18,8 +18,6 @@ public:
 };
 
 ulong *convertBuffer2Array(char *cbuffer, unsigned size, unsigned step);
-void do_fpc(int work_groupe_sz, int repeat);
-void run_fpc_impl(std::shared_ptr<IFpc> fpc_impl, ulong *values, unsigned values_size, int cmp_size, int work_group_sz, int repeat);
 
 
 class FPC : public IKernel{
@@ -27,6 +25,7 @@ class FPC : public IKernel{
         int run_kernel(int argc,char** argv);
     private : 
         void run_versions(class_umap<IFpc> versions,int repetitions);
+        void run_impl(std::shared_ptr<IFpc> fpc_impl, ulong* values, unsigned values_size, int cmp_size, int work_group_sz, int repeat);
         void register_cli_options(argparse::ArgumentParser& parser) override;
         std::vector<std::string> list_versions() override;
 };

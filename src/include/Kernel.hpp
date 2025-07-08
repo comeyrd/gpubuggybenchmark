@@ -1,6 +1,7 @@
 #ifndef Kernel_HPP
 #define Kernel_HPP
 #include <argparse/argparse.hpp>
+#include "Manager.hpp"
 
 class IKernel{
     public:
