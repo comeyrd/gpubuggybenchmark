@@ -12,6 +12,7 @@ if(CMAKE_CUDA_COMPILER)
     enable_language(CUDA)
     ##TODO setup Debug & Release
     set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --generate-line-info")
+    add_subdirectory(cuda_common)
 else()
     check_language(HIP)
     if(CMAKE_HIP_COMPILER)

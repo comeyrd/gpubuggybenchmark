@@ -5,6 +5,7 @@
 #include <cuda.h>
 #include <cub/cub.cuh>
 #include "acc-reference.hpp"
+#include "cuda-utils.hpp"
 
 #define GPU_NUM_THREADS 256
 
@@ -40,7 +41,10 @@ void accuracy_reference_kernel(const int N, const int D, const int top_k, const 
   }
 }
 
-int ReferenceAccuracy::accuracy(const AccuracyData &aData,const AccuracySettings &aSettings)const {
+KernelStats ReferenceAccuracy::accuracy(const AccuracyData &aData, const AccuracySettings &aSettings, AccuracyResult &aResult) const{
+    CudaProfiling prof;
+
+    prof.begin_mem2D();
     int *d_label;
     cudaMalloc((void**)&d_label, aData.label_sz_bytes);
     cudaMemcpy(d_label, aData.label, aData.label_sz_bytes, cudaMemcpyHostToDevice);
@@ -52,23 +56,25 @@ int ReferenceAccuracy::accuracy(const AccuracyData &aData,const AccuracySettings
     int *d_count;
     cudaMalloc((void**)&d_count, sizeof(int));
 
-    cudaDeviceSynchronize();
     dim3 block (GPU_NUM_THREADS);
 
     dim3 grid (aSettings.grid_sz);
 
     cudaMemset(d_count, 0, sizeof(int));
+    prof.end_mem2D();
+    prof.begin_compute();
     accuracy_reference_kernel<<<grid, block>>>(aData.n_rows, aData.ndims, aData.topk, d_data, d_label, d_count);
+    prof.end_compute();
 
     cudaDeviceSynchronize();
-
-    int count;
-    cudaMemcpy(&count, d_count, sizeof(int), cudaMemcpyDeviceToHost);
+    prof.begin_mem2H();
+    cudaMemcpy(&aResult.count, d_count, sizeof(int), cudaMemcpyDeviceToHost);
+    prof.end_mem2H();
 
     cudaFree(d_label);
     cudaFree(d_data);
     cudaFree(d_count);
-
-    return count;
+    return prof.retreive();
 };
+
 REGISTER_CLASS(IAccuracy,ReferenceAccuracy);

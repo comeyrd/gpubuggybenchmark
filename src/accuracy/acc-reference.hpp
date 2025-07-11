@@ -4,7 +4,7 @@
 
 class ReferenceAccuracy : public IAccuracy {
 public:
-    int accuracy(const AccuracyData &aData, const AccuracySettings &aSettings) const override;
+    KernelStats accuracy(const AccuracyData &aData, const AccuracySettings &aSettings, AccuracyResult &aResult) const override;
 };
 
 #endif

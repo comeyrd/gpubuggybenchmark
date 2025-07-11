@@ -5,18 +5,21 @@ set(ACCURACY_COMMON_SRC
 )
 
 set(ACCURACY_LIB_TO_LINK argparse)
+set(ACCURACY_DIR_TO_INCLUDE ${ACCURACY_DIR} ${ACCURACY_DIR}/flawed ${CMAKE_SOURCE_DIR}/include)
 
 if(BUILD_WITH_CUDA)
-    file(GLOB FLAWED_CUDA "${ACCURACY_DIR}/*.cu" "${ACCURACY_DIR}/flawed/*.cu")
+    file(GLOB FLAWED_CUDA "${ACCURACY_DIR}/*.cu" "${ACCURACY_DIR}/flawed/*.cu" "${ACCURACY_DIR}/cuda/*.cu" )
     add_library(accuracy STATIC ${ACCURACY_COMMON_SRC} ${FLAWED_CUDA})    
     set_target_properties(accuracy PROPERTIES CUDA_ARCHITECTURES 70)
-    target_link_libraries(accuracy ${ACCURACY_LIB_TO_LINK})
+    target_link_libraries(accuracy ${ACCURACY_LIB_TO_LINK} cuda_common)
+    target_include_directories(accuracy PUBLIC ${ACCURACY_DIR_TO_INCLUDE} ${ACCURACY_DIR}/cuda)
 
 elseif(BUILD_WITH_HIP)
-    file(GLOB FLAWED_CUDA "${ACCURACY_DIR}/*.hip" "${ACCURACY_DIR}/flawed/*.hip")
-    add_library(accuracy STATIC ${ACCURACY_COMMON_SRC} ${FLAWED_CUDA})
+    file(GLOB FLAWED_HIP "${ACCURACY_DIR}/*.hip" "${ACCURACY_DIR}/flawed/*.hip")
+    add_library(accuracy STATIC ${ACCURACY_COMMON_SRC} ${FLAWED_HIP})
     target_link_libraries(accuracy ${ACCURACY_LIB_TO_LINK})
-    
+    target_include_directories(accuracy PUBLIC ${ACCURACY_DIR_TO_INCLUDE} ${ACCURACY_DIR}/hip)
+
 elseif(BUILD_WITH_METAL)
     # Find all .metal shader files
     file(GLOB FLAWED_METAL "${ACCURACY_DIR}/*.metal" "${ACCURACY_DIR}/flawed/*.metal")
@@ -64,4 +67,3 @@ elseif(BUILD_WITH_METAL)
 
 endif()
 
-target_include_directories(accuracy PUBLIC ${ACCURACY_DIR} ${ACCURACY_DIR}/flawed ${CMAKE_SOURCE_DIR}/include)

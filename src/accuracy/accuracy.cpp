@@ -25,7 +25,7 @@ void Accuracy::register_cli_options(argparse::ArgumentParser &parser) {
     group.add_argument("-a", "--all").flag();
     group.add_argument("-v", "--version").nargs(argparse::nargs_pattern::at_least_one);
     group.add_argument("-lv", "--list-versions").flag();
-    parser.add_argument("--repetitions", "-r").default_value(5).scan<'i', int>();
+    parser.add_argument("--repetitions", "-r").default_value(100).scan<'i', int>();
 };
 
 int Accuracy::run_kernel(int argc, char **argv) {
@@ -53,7 +53,7 @@ int Accuracy::run_kernel(int argc, char **argv) {
     bool versions_set = fpc_parser.is_used("-v");
 
     if (list_set) {
-        std::cout << "Versions of FPC :" << std::endl;
+        std::cout << "Versions of Accuracy :" << std::endl;
         for (const auto &version : this->list_versions()) {
             std::cout << version << std::endl;
         }
@@ -84,29 +84,32 @@ void Accuracy::run_versions(class_umap<IAccuracy> versions, int repetitions) {
 
     AccuracyData aData = this->random_data(NROWS,NDIMS,TOP_K);
     AccuracySettings aSettings = {GRID_SZ};
-
-    int count = this->run_cpu(aData);
+    AccuracyResult baseResult;
+    baseResult.count = this->run_cpu(aData);
 
     for (const auto &[name, version_impl] : versions) {
+        AccuracyResult vResult;
         std::cout << " Version " << name << std::endl;
-        int t_count = this->run_impl(version_impl, repetitions, aData, aSettings );
-        if (t_count == count){
-            std::cout << "        Sucess"<<std::endl<<std::endl;
+        KernelStats vStat = this->run_impl(version_impl, repetitions, aData, aSettings, vResult);
+        if (vResult == baseResult){
+            std::cout << "        Sucess"<<std::endl;
         }else{
-            std::cout << "        Failed"<<std::endl<<std::endl;
+            std::cout << "        Failed"<<std::endl;
         }
+        std::cout << "          " << vStat << std::endl;
     }
     free(aData.data);
     free(aData.label);
 
 }
 
-int Accuracy::run_impl(std::shared_ptr<IAccuracy> accuracy_impl, int repetitions, AccuracyData &aData, AccuracySettings &aSettings) {
-    int count = 0;
+KernelStats Accuracy::run_impl(std::shared_ptr<IAccuracy> accuracy_impl, int repetitions, AccuracyData &aData, AccuracySettings &aSettings,AccuracyResult &aResult) {
+    KernelStats kstats;
     for (int _ = 0; _ < repetitions; _++) {
-        count = accuracy_impl->accuracy(aData, aSettings);
+        kstats += accuracy_impl->accuracy(aData, aSettings,aResult);
     }
-    return count;
+
+    return kstats/repetitions;
 }
 
 AccuracyData Accuracy::random_data(int n_rows, int ndims, int top_k){

@@ -31,10 +31,17 @@ struct AccuracySettings {
     int grid_sz;
 };
 
+struct AccuracyResult {
+    int count;
+    bool operator==(const AccuracyResult& other) const {
+    return other.count == this->count;
+};
+};
+
 class IAccuracy {
 public:
     virtual ~IAccuracy() = default;
-    virtual int accuracy(const AccuracyData &aData, const AccuracySettings &aSettings) const = 0;
+    virtual KernelStats accuracy(const AccuracyData &aData, const AccuracySettings &aSettings, AccuracyResult &aResult) const = 0;
 };
 
 class Accuracy : public IKernel {
@@ -45,7 +52,8 @@ private:
     void register_cli_options(argparse::ArgumentParser &parser) override;
     std::vector<std::string> list_versions() override;
     void run_versions(class_umap<IAccuracy> versions, int repetitions);
-    int run_impl(std::shared_ptr<IAccuracy> accuracy_impl,int repeat,AccuracyData &aData, AccuracySettings &aSettings);    int run_cpu(const AccuracyData &aData);
+    KernelStats run_impl(std::shared_ptr<IAccuracy> accuracy_impl, int repetitions, AccuracyData &aData, AccuracySettings &aSettings,AccuracyResult &aResult);
+    int run_cpu(const AccuracyData &aData);
     AccuracyData random_data(int n_rows, int ndims, int top_k);
 };
 
