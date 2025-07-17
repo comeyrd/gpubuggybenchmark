@@ -11,7 +11,7 @@ if(BUILD_WITH_CUDA)
     file(GLOB FLAWED_CUDA "${FPC_DIR}/*.cu" "${FPC_DIR}/flawed/*.cu")
     add_library(fpc STATIC ${FPC_COMMON_SRC} ${FLAWED_CUDA})    
     set_target_properties(fpc PROPERTIES CUDA_ARCHITECTURES 70)
-    target_link_libraries(fpc ${FPC_LIB_TO_LINK})
+    target_link_libraries(fpc ${FPC_LIB_TO_LINK} cuda_common)
 
 elseif(BUILD_WITH_HIP)
     file(GLOB FLAWED_CUDA "${FPC_DIR}/*.hip" "${FPC_DIR}/flawed/*.hip")

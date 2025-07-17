@@ -3,6 +3,8 @@
 #include <chrono>
 #include <cuda.h>
 #include "fpc-reference.hpp"
+#include "cuda-utils.hpp"
+
 namespace {
 __device__
 unsigned my_abs ( int x )
