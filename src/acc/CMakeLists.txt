@@ -1,11 +1,11 @@
-set(ACCURACY_DIR ${CMAKE_SOURCE_DIR}/accuracy)
+set(ACCURACY_DIR ${CMAKE_SOURCE_DIR}/acc)
 
 set(ACCURACY_COMMON_SRC
     ${ACCURACY_DIR}/accuracy.cpp
 )
 
 set(ACCURACY_LIB_TO_LINK argparse)
-set(ACCURACY_DIR_TO_INCLUDE ${ACCURACY_DIR} ${ACCURACY_DIR}/flawed ${CMAKE_SOURCE_DIR}/include)
+set(ACCURACY_DIR_TO_INCLUDE ${ACCURACY_DIR} ${ACCURACY_DIR}/flawed/include ${CMAKE_SOURCE_DIR}/include)
 
 if(BUILD_WITH_CUDA)
     file(GLOB FLAWED_CUDA "${ACCURACY_DIR}/*.cu" "${ACCURACY_DIR}/flawed/*.cu" "${ACCURACY_DIR}/cuda/*.cu" )

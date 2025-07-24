@@ -1,7 +1,7 @@
 #include "cuda-utils.hpp"
 
 void check_cuda_error(cudaError_t error_code,const char* file, int line){
-    if(error_code != cudaSuccess){
+    if(error_code != cudaSuccess){ 
         std::string msg = std::string("CUDA Error : ") + cudaGetErrorString(error_code) + std::string(" in : ") + file + std::string(" line ") + std::to_string(line);
         throw std::runtime_error(msg);
     }
@@ -25,12 +25,19 @@ CudaProfiling::CudaProfiling(){
 };
 
 CudaProfiling::~CudaProfiling(){
-    CHECK_CUDA(cudaEventDestroy(memstart2D));
-    CHECK_CUDA(cudaEventDestroy(memstop2D));
-    CHECK_CUDA(cudaEventDestroy(memstart2H));
-    CHECK_CUDA(cudaEventDestroy(memstop2H));
-    CHECK_CUDA(cudaEventDestroy(computestart));
-    CHECK_CUDA(cudaEventDestroy(computestop));
+    if(!destroy){
+        try{
+            CHECK_CUDA(cudaEventDestroy(memstart2D));
+            CHECK_CUDA(cudaEventDestroy(memstop2D));
+            CHECK_CUDA(cudaEventDestroy(memstart2H));
+            CHECK_CUDA(cudaEventDestroy(memstop2H));
+            CHECK_CUDA(cudaEventDestroy(computestart));
+            CHECK_CUDA(cudaEventDestroy(computestop));
+        }catch(std::exception &e){
+            std::cerr << "Error destroying Cuda profiler" << e.what()<<std::endl;
+        }
+    }
+    
 };
 
 void CudaProfiling::begin_mem2D(){
@@ -68,6 +75,15 @@ KernelStats CudaProfiling::retreive(){
     CHECK_CUDA(cudaEventElapsedTime(&stats.memcpy2D, memstart2D, memstop2D));
     CHECK_CUDA(cudaEventElapsedTime(&stats.compute, computestart, computestop));
     CHECK_CUDA(cudaEventElapsedTime(&stats.memcpy2H, memstart2H, memstop2H));
-
+    if(!destroy){ 
+        CHECK_CUDA(cudaEventDestroy(memstart2D));
+        CHECK_CUDA(cudaEventDestroy(memstop2D));
+        CHECK_CUDA(cudaEventDestroy(memstart2H));
+        CHECK_CUDA(cudaEventDestroy(memstop2H));
+        CHECK_CUDA(cudaEventDestroy(computestart));
+        CHECK_CUDA(cudaEventDestroy(computestop));
+        destroy = true;
+    }
+   
     return stats;
 }

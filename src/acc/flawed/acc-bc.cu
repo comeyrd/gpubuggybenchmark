@@ -4,8 +4,9 @@
 #include <random>
 #include <cuda.h>
 #include <cub/cub.cuh>
-#include "acc-reference.hpp"
+#include "acc-bc.hpp"
 #include "cuda-utils.hpp"
+//Not Enqueing, Using blocking calls for memory copy or kernel executions
 
 #define GPU_NUM_THREADS 256
 
@@ -17,7 +18,7 @@ __device__ void BlockReduce(T &input) {
 }
 
 __global__
-void accuracy_reference_kernel(const int N, const int D, const int top_k, const float* Xdata, const int* labelData, int* accuracy){
+void accuracy_bc_kernel(const int N, const int D, const int top_k, const float* Xdata, const int* labelData, int* accuracy){
   int count = 0;
 
   for (int row = blockIdx.x; row < N; row += gridDim.x) {
@@ -41,34 +42,41 @@ void accuracy_reference_kernel(const int N, const int D, const int top_k, const 
   }
 }
 
-KernelStats ReferenceAccuracy::accuracy(const AccuracyData &aData, const AccuracySettings &aSettings, AccuracyResult &aResult) const{
+KernelStats BCAccuracy::accuracy(const AccuracyData &aData, const AccuracySettings &aSettings, AccuracyResult &aResult) const{
     CudaProfiling prof;
 
     prof.begin_mem2D();
     int *d_label;
     cudaMalloc((void**)&d_label, aData.label_sz_bytes);
+    CHECK_CUDA(cudaDeviceSynchronize());//BUG
     cudaMemcpy(d_label, aData.label, aData.label_sz_bytes, cudaMemcpyHostToDevice);
-
+    CHECK_CUDA(cudaDeviceSynchronize());//BUG
     float *d_data;
     cudaMalloc((void**)&d_data, aData.label_sz_bytes);
+    CHECK_CUDA(cudaDeviceSynchronize());//BUG
     cudaMemcpy(d_data, aData.data, aData.label_sz_bytes, cudaMemcpyHostToDevice);
+    CHECK_CUDA(cudaDeviceSynchronize());//BUG
 
     int *d_count;
     cudaMalloc((void**)&d_count, sizeof(int));
+    CHECK_CUDA(cudaDeviceSynchronize());//BUG
 
     dim3 block (GPU_NUM_THREADS);
 
     dim3 grid (aSettings.grid_sz);
 
     cudaMemset(d_count, 0, sizeof(int));
+    CHECK_CUDA(cudaDeviceSynchronize());//BUG
     prof.end_mem2D();
     prof.begin_compute();
-    accuracy_reference_kernel<<<grid, block>>>(aData.n_rows, aData.ndims, aData.topk, d_data, d_label, d_count);
+    accuracy_bc_kernel<<<grid, block>>>(aData.n_rows, aData.ndims, aData.topk, d_data, d_label, d_count);
+    CHECK_CUDA(cudaDeviceSynchronize());//BUG
     prof.end_compute();
 
     CHECK_CUDA(cudaDeviceSynchronize());
     prof.begin_mem2H();
     cudaMemcpy(&aResult.count, d_count, sizeof(int), cudaMemcpyDeviceToHost);
+    CHECK_CUDA(cudaDeviceSynchronize());//BUG
     prof.end_mem2H();
 
     cudaFree(d_label);
@@ -77,4 +85,4 @@ KernelStats ReferenceAccuracy::accuracy(const AccuracyData &aData, const Accurac
     return prof.retreive();
 };
 
-REGISTER_CLASS(IAccuracy,ReferenceAccuracy);
+REGISTER_CLASS(IAccuracy,BCAccuracy);

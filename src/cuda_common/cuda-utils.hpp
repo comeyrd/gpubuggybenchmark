@@ -14,7 +14,7 @@ class CudaProfiling{
     cudaEvent_t memstop2H;
     cudaEvent_t computestart;
     cudaEvent_t computestop;
-
+    bool destroy = false;
     public:
     CudaProfiling();
     ~CudaProfiling();

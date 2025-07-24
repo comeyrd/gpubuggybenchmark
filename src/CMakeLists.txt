@@ -3,6 +3,7 @@ cmake_minimum_required(VERSION 3.15)
 project(gpubuggy LANGUAGES CXX)
 ##TODO setup Debug & Release
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -O3 -g")
+set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -Wall -O0 -g")
 include(CheckLanguage)
 check_language(CUDA)
 if(CMAKE_CUDA_COMPILER)
@@ -61,7 +62,7 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(argparse)
 
-set(KERNELS_TO_LINK fpc acc)
+set(KERNELS_TO_LINK fpc accuracy)
 
 
 if(APPLE)

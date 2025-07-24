@@ -4,8 +4,9 @@
 #include <random>
 #include <cuda.h>
 #include <cub/cub.cuh>
-#include "acc-reference.hpp"
+#include "acc-rc.hpp"
 #include "cuda-utils.hpp"
+//Loss of Information, Race condition
 
 #define GPU_NUM_THREADS 256
 
@@ -17,7 +18,7 @@ __device__ void BlockReduce(T &input) {
 }
 
 __global__
-void accuracy_reference_kernel(const int N, const int D, const int top_k, const float* Xdata, const int* labelData, int* accuracy){
+void accuracy_rc_kernel(const int N, const int D, const int top_k, const float* Xdata, const int* labelData, int* accuracy){
   int count = 0;
 
   for (int row = blockIdx.x; row < N; row += gridDim.x) {
@@ -34,14 +35,14 @@ void accuracy_reference_kernel(const int N, const int D, const int top_k, const 
     if (ngt <= top_k) {
       ++count;
     }
-    __syncthreads();
+    //__syncthreads();//BUG
   }
   if (threadIdx.x == 0) { 
     atomicAdd(accuracy, count);
   }
 }
 
-KernelStats ReferenceAccuracy::accuracy(const AccuracyData &aData, const AccuracySettings &aSettings, AccuracyResult &aResult) const{
+KernelStats RCAccuracy::accuracy(const AccuracyData &aData, const AccuracySettings &aSettings, AccuracyResult &aResult) const{
     CudaProfiling prof;
 
     prof.begin_mem2D();
@@ -63,7 +64,7 @@ KernelStats ReferenceAccuracy::accuracy(const AccuracyData &aData, const Accurac
     cudaMemset(d_count, 0, sizeof(int));
     prof.end_mem2D();
     prof.begin_compute();
-    accuracy_reference_kernel<<<grid, block>>>(aData.n_rows, aData.ndims, aData.topk, d_data, d_label, d_count);
+    accuracy_rc_kernel<<<grid, block>>>(aData.n_rows, aData.ndims, aData.topk, d_data, d_label, d_count);
     prof.end_compute();
 
     CHECK_CUDA(cudaDeviceSynchronize());
@@ -77,4 +78,4 @@ KernelStats ReferenceAccuracy::accuracy(const AccuracyData &aData, const Accurac
     return prof.retreive();
 };
 
-REGISTER_CLASS(IAccuracy,ReferenceAccuracy);
+REGISTER_CLASS(IAccuracy,RCAccuracy);
