@@ -7,6 +7,7 @@
 #include "acc-dr.hpp"
 #include "cuda-utils.hpp"
 //Data Locality, using register memory for shared or global memory (register spilling)
+//TODO FIX
 #define GPU_NUM_THREADS 256
 
 template <typename T>
@@ -82,4 +83,4 @@ KernelStats DRAccuracy::accuracy(const AccuracyData &aData, const AccuracySettin
     return prof.retreive();
 };
 
-REGISTER_CLASS(IAccuracy,DRAccuracy);
+//REGISTER_CLASS(IAccuracy,DRAccuracy);

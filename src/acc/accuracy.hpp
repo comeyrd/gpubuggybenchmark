@@ -51,8 +51,8 @@ public:
 private:
     void register_cli_options(argparse::ArgumentParser &parser) override;
     std::vector<std::string> list_versions() override;
-    void run_versions(class_umap<IAccuracy> versions, int repetitions);
-    KernelStats run_impl(std::shared_ptr<IAccuracy> accuracy_impl, int repetitions, AccuracyData &aData, AccuracySettings &aSettings,AccuracyResult &aResult);
+    void run_versions(class_umap<IAccuracy> versions, int repetitions, int warmup);
+    KernelStats run_impl(std::shared_ptr<IAccuracy> accuracy_impl, int repetitions, int warmup, AccuracyData &aData, AccuracySettings &aSettings,AccuracyResult &aResult);
     int run_cpu(const AccuracyData &aData);
     AccuracyData random_data(int n_rows, int ndims, int top_k);
 };

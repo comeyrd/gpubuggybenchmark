@@ -1,18 +1,19 @@
 #include "cuda-utils.hpp"
+#include "gpu-utils.hpp"
+
+void setup_gpu(){
+    CHECK_CUDA(cudaSetDevice(0));
+}
+
+void reset_gpu(){
+    CHECK_CUDA(cudaDeviceReset());
+}
 
 void check_cuda_error(cudaError_t error_code,const char* file, int line){
     if(error_code != cudaSuccess){ 
         std::string msg = std::string("CUDA Error : ") + cudaGetErrorString(error_code) + std::string(" in : ") + file + std::string(" line ") + std::to_string(line);
         throw std::runtime_error(msg);
     }
-}
-
-void setup_gpu(){
-    cudaSetDevice(0);
-}
-
-void reset_state(){
-    cudaDeviceReset();
 }
 
 CudaProfiling::CudaProfiling(){

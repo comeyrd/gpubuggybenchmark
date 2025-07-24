@@ -1,4 +1,5 @@
 #include "accuracy.hpp"
+#include "gpu-utils.hpp"
 #include <random>
 
 int Accuracy::run_cpu(const AccuracyData &aData) {
@@ -25,7 +26,8 @@ void Accuracy::register_cli_options(argparse::ArgumentParser &parser) {
     group.add_argument("-a", "--all").flag();
     group.add_argument("-cv", "--choose-version").nargs(argparse::nargs_pattern::at_least_one);
     group.add_argument("-lv", "--list-versions").flag();
-    parser.add_argument("--repetitions", "-r").default_value(100).scan<'i', int>();
+    parser.add_argument("--repetitions", "-r").default_value(100).scan<'i', int>().help("Number of repetitions of execution of each Version");
+    parser.add_argument("--warmup", "-w").default_value(5).scan<'i', int>().help("How many executions must be used as warm up");
 };
 
 int Accuracy::run_kernel(int argc, char **argv) {
@@ -50,6 +52,7 @@ int Accuracy::run_kernel(int argc, char **argv) {
     bool all_set = fpc_parser.get<bool>("--all");
     bool list_set = fpc_parser.get<bool>("--list-versions");
     int repetitions = fpc_parser.get<int>("--repetitions");
+    int warmup = fpc_parser.get<int>("--warmup");
     bool versions_set = fpc_parser.is_used("-cv");
 
     if (list_set) {
@@ -59,11 +62,11 @@ int Accuracy::run_kernel(int argc, char **argv) {
         }
     } else if (all_set) {
         class_umap<IAccuracy> versions_map = Manager<IAccuracy>::instance()->getClasses();
-        this->run_versions(versions_map, repetitions);
+        this->run_versions(versions_map, repetitions,warmup);
     } else if (versions_set) {
         std::vector<std::string> versions = fpc_parser.get<std::vector<std::string>>("-cv");
         class_umap<IAccuracy> versions_map = select_versions_in_umap(versions, Manager<IAccuracy>::instance()->getClasses());
-        this->run_versions(versions_map, repetitions);
+        this->run_versions(versions_map, repetitions, warmup);
     } else {
         std::cout << fpc_parser << std::endl;
         return 1;
@@ -80,7 +83,7 @@ std::vector<std::string> Accuracy::list_versions() {
     return vs;
 }
 
-void Accuracy::run_versions(class_umap<IAccuracy> versions, int repetitions) {
+void Accuracy::run_versions(class_umap<IAccuracy> versions, int repetitions, int warmup) {
 
     AccuracyData aData = this->random_data(NROWS, NDIMS, TOP_K);
     AccuracySettings aSettings = {GRID_SZ};
@@ -91,28 +94,36 @@ void Accuracy::run_versions(class_umap<IAccuracy> versions, int repetitions) {
         AccuracyResult vResult;
         std::cout << "Version " << name << std::endl;
         try {
-            KernelStats vStat = this->run_impl(version_impl, repetitions, aData, aSettings, vResult);
+            KernelStats vStat = this->run_impl(version_impl, repetitions, warmup, aData, aSettings, vResult);
             if (!(vResult == baseResult)) {
                 std::cout << "Failed" << std::endl;
             }
-            std::cout << "" << vStat << std::endl << std::endl;
+            std::cout << "" << vStat << std::endl
+                      << std::endl;
         } catch (std::exception &e) {
             std::cout << "Error Encountered when running impl " << name << std::endl;
+            reset_gpu();
             std::cout << e.what() << std::endl;
         }
-        std::cout << "--------" <<std::endl;
+        std::cout << "--------" << std::endl;
     }
     free(aData.data);
     free(aData.label);
 }
 
-KernelStats Accuracy::run_impl(std::shared_ptr<IAccuracy> accuracy_impl, int repetitions, AccuracyData &aData, AccuracySettings &aSettings, AccuracyResult &aResult) {
+KernelStats Accuracy::run_impl(std::shared_ptr<IAccuracy> accuracy_impl, int repetitions, int warmup, AccuracyData &aData, AccuracySettings &aSettings, AccuracyResult &aResult) {
     KernelStats kstats;
-    for (int _ = 0; _ < repetitions; _++) {
-        kstats += accuracy_impl->accuracy(aData, aSettings, aResult);
+    StableMeanCriterion criterion(10000);               
+    for (int _ = 0; _< warmup ; _++){
+        accuracy_impl->accuracy(aData, aSettings, aResult);
     }
-
-    return kstats / repetitions;
+    while(!criterion.should_stop()){
+        KernelStats kstats = accuracy_impl->accuracy(aData, aSettings, aResult);
+        criterion.observe(kstats);
+    }
+    reset_gpu();
+    
+    return criterion.get_mean();
 }
 
 AccuracyData Accuracy::random_data(int n_rows, int ndims, int top_k) {
