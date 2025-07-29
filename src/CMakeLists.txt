@@ -52,6 +52,7 @@ else()
 endif()
 add_subdirectory(fpc)
 add_subdirectory(acc)
+add_subdirectory(bilateral)
 add_executable(gpubuggy main.cpp)
 
 include(FetchContent)
@@ -62,7 +63,7 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(argparse)
 
-set(KERNELS_TO_LINK fpc accuracy)
+set(KERNELS_TO_LINK fpc accuracy bilateral)
 
 
 if(APPLE)
