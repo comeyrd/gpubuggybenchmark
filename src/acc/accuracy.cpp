@@ -113,7 +113,7 @@ void Accuracy::run_versions(class_umap<IAccuracy> versions, int repetitions, int
 
 KernelStats Accuracy::run_impl(std::shared_ptr<IAccuracy> accuracy_impl, int repetitions, int warmup, AccuracyData &aData, AccuracySettings &aSettings, AccuracyResult &aResult) {
     KernelStats kstats;
-    StableMeanCriterion criterion(10000);               
+    StableMeanCriterion criterion(1000000,5,1);               
     for (int _ = 0; _< warmup ; _++){
         accuracy_impl->accuracy(aData, aSettings, aResult);
     }

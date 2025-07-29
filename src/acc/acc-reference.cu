@@ -8,6 +8,7 @@
 #include "cuda-utils.hpp"
 
 #define GPU_NUM_THREADS 256
+//TODO Move the template inside the accuracy kernel and enum with possible gpu num threads
 
 template <typename T>
 __device__ void BlockReduce(T &input) {
