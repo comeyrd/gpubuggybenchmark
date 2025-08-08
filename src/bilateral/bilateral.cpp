@@ -116,14 +116,13 @@ std::vector<std::string> Bilateral::list_versions() {
     return vs;
 }
 
-void Bilateral::run_versions(class_umap<IBilateral> versions, int repetitions, int warmup, BilateralData bData, BilateralSettings bSettings) {
+void Bilateral::run_versions(class_umap<IBilateral> versions, int repetitions, int warmup, const BilateralData bData, BilateralSettings bSettings) {
 
     BilateralResult baseResult;
     baseResult.size = bSettings.height * bSettings.width;
     baseResult.b_size = baseResult.size * sizeof(float);
     baseResult.outputImage = (float *)malloc(baseResult.b_size);
     this->run_cpu<4>(bData,bSettings,baseResult);
-    baseResult.updateChecksum();
     BilateralResult vResult;
     vResult.size = bSettings.height * bSettings.width;
     vResult.b_size = vResult.size * sizeof(float);
@@ -132,7 +131,6 @@ void Bilateral::run_versions(class_umap<IBilateral> versions, int repetitions, i
         std::cout << "Version " << name << std::endl;
         try {
             KernelStats vStat = this->run_impl(version_impl, repetitions, warmup, bData, bSettings, vResult);
-            vResult.updateChecksum();
             if (!(vResult == baseResult)) {
                 std::cout << "Failed" << std::endl;
             }
@@ -150,7 +148,7 @@ void Bilateral::run_versions(class_umap<IBilateral> versions, int repetitions, i
     free(vResult.outputImage);
 }
 
-KernelStats Bilateral::run_impl(std::shared_ptr<IBilateral> bilateral_impl, int repetitions, int warmup, BilateralData &bData, BilateralSettings &bSettings, BilateralResult &bResult) {
+KernelStats Bilateral::run_impl(std::shared_ptr<IBilateral> bilateral_impl, int repetitions, int warmup, const BilateralData &bData, BilateralSettings &bSettings, BilateralResult &bResult) {
     KernelStats kstats;
     StableMeanCriterion criterion(1000000, 5, 1);
     for (int _ = 0; _ < warmup; _++) {
@@ -181,17 +179,3 @@ BilateralData Bilateral::random_data(const BilateralSettings &bSettings) {
 }
 
 REGISTER_CLASS(IKernel, Bilateral);
-
-uint32_t BilateralResult::computeChecksum() const {
-    {
-        if (!outputImage || size == 0)
-            return 0;
-        uint32_t sum = 0;
-        for (size_t i = 0; i < size; ++i) {
-            uint32_t val;
-            memcpy(&val, &outputImage[i], sizeof(uint32_t));
-            sum ^= val;
-        }
-        return sum;
-    }
-}
