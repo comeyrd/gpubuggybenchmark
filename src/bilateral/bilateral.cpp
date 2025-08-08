@@ -3,10 +3,10 @@
 template <int R>
 void Bilateral::run_cpu(const BilateralData &bData, const BilateralSettings &bSettings, BilateralResult &bResult) {
 #pragma omp parallel for collapse(2)
-    for (int idx = 0; idx < bData.width; idx++) {
-        for (int idy = 0; idy < bData.height; idy++) {
+    for (uint idx = 0; idx < bData.width; idx++) {
+        for (uint idy = 0; idy < bData.height; idy++) {
 
-            int id = idy * bData.width + idx;
+            uint id = idy * bData.width + idx;
             float I = bData.inputImage[id];
             float res = 0.f;
             float normalization = 0.f;
@@ -17,8 +17,8 @@ void Bilateral::run_cpu(const BilateralData &bData, const BilateralSettings &bSe
 #pragma unroll
                 for (int j = -R; j <= R; j++) {
 
-                    int idk = idx + i;
-                    int idl = idy + j;
+                    uint idk = idx + i;
+                    uint idl = idy + j;
 
                     // mirror edges
                     if (idk < 0)
@@ -30,7 +30,7 @@ void Bilateral::run_cpu(const BilateralData &bData, const BilateralSettings &bSe
                     if (idl > bData.height - 1)
                         idl = bData.height - 1 - j;
 
-                    int id_w = idl * bData.width + idk;
+                    uint id_w = idl * bData.width + idk;
                     float I_w = bData.inputImage[id_w];
 
                     // range kernel for smoothing differences in intensities
@@ -89,7 +89,7 @@ int Bilateral::run_kernel(int argc, char **argv) {
         for (const auto &version : this->list_versions()) {
             std::cout << version << std::endl;
         }
-    }else{
+    } else {
         class_umap<IBilateral> versions_map;
         if (all_set) {
             versions_map = Manager<IBilateral>::instance()->getClasses();
@@ -100,9 +100,9 @@ int Bilateral::run_kernel(int argc, char **argv) {
             std::cout << fpc_parser << std::endl;
             return 1;
         }
-        BilateralSettings bSettings = {WIDTH,HEIGHT, A_SQUARE,VARIANCE_I,VARIANCE_SPATIALE};
+        BilateralSettings bSettings = {WIDTH, HEIGHT, A_SQUARE, VARIANCE_I, VARIANCE_SPATIALE};
         BilateralData bData = this->random_data(bSettings);
-        this->run_versions(versions_map, repetitions, warmup,bData,bSettings);
+        this->run_versions(versions_map, repetitions, warmup, bData, bSettings);
     }
     return 0;
 }
@@ -122,7 +122,7 @@ void Bilateral::run_versions(class_umap<IBilateral> versions, int repetitions, i
     baseResult.size = bSettings.height * bSettings.width;
     baseResult.b_size = baseResult.size * sizeof(float);
     baseResult.outputImage = (float *)malloc(baseResult.b_size);
-    this->run_cpu<4>(bData,bSettings,baseResult);
+    this->run_cpu<3>(bData, bSettings, baseResult);
     BilateralResult vResult;
     vResult.size = bSettings.height * bSettings.width;
     vResult.b_size = vResult.size * sizeof(float);
@@ -172,7 +172,7 @@ BilateralData Bilateral::random_data(const BilateralSettings &bSettings) {
     bData.inputImage = (float *)malloc(bData.b_size);
 
     srand(123);
-    for (int i = 0; i < bData.size; i++)
+    for (uint i = 0; i < bData.size; i++)
         bData.inputImage[i] = rand() % 256;
 
     return bData;

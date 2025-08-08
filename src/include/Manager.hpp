@@ -7,7 +7,7 @@
 
 template <class _Tp> using class_umap = std::unordered_map<std::string, std::shared_ptr<_Tp>>;
 
-template<class _Tp> using class_pair = std::pair<std::string,std::shared_ptr<_Tp>>;
+template<class _Tp> using class_pair = std::pair<const std::string,std::shared_ptr<_Tp>>;
 
 template <class _Tp > class_umap<_Tp> select_versions_in_umap(const std::vector<std::string>& keys, const class_umap<_Tp>& input_map){
     class_umap<_Tp> result;

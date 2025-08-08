@@ -118,7 +118,7 @@ class StableMeanCriterion : public ICriterion{
         KernelStats cumsum;
         int count = 0;
         int max_iteration;
-        int window_size;
+        size_t window_size;
         uint percent_threshold;
         
         bool is_stable() const{
