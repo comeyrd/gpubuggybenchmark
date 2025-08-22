@@ -65,10 +65,10 @@ KernelStats ReferenceBilateral::bilateral(const BilateralData &aData, const Bila
   float *d_src, *d_dst;
   CudaProfiling prof;
   prof.begin_mem2D();
-  cudaMalloc((void**)&d_dst, aData.size * sizeof(float));
-  cudaMalloc((void**)&d_src, aData.size * sizeof(float));
+  CHECK_CUDA(cudaMalloc((void**)&d_dst, aData.size * sizeof(float)));
+  CHECK_CUDA(cudaMalloc((void**)&d_src, aData.size * sizeof(float)));
 
-  cudaMemcpy(d_src, aData.inputImage, aData.size * sizeof(float), cudaMemcpyHostToDevice); 
+  CHECK_CUDA(cudaMemcpy(d_src, aData.inputImage, aData.size * sizeof(float), cudaMemcpyHostToDevice)); 
   prof.end_mem2D();
   dim3 threads (16, 16);
   dim3 blocks ((aData.width+15)/16, (aData.height+15)/16);
@@ -76,7 +76,7 @@ KernelStats ReferenceBilateral::bilateral(const BilateralData &aData, const Bila
   bilateralFilter<3><<<blocks, threads>>>(d_src, d_dst, aData.width, aData.height, aSettings.a_square, aSettings.variance_I, aSettings.variance_spatial);
   prof.end_compute();
   prof.begin_mem2H();
-  cudaMemcpy(aResult.outputImage, d_dst, aData.size * sizeof(float), cudaMemcpyDeviceToHost); 
+  CHECK_CUDA(cudaMemcpy(aResult.outputImage, d_dst, aData.size * sizeof(float), cudaMemcpyDeviceToHost)); 
   prof.end_mem2H();
   return prof.retreive();
 };
