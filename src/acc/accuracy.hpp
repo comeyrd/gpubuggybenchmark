@@ -6,6 +6,7 @@
 #include <memory>
 #include <string>
 #include <unordered_map>
+#include <forward_list>
 
 //TODO fix the generation of random data, or use a dataset ?
 
@@ -15,6 +16,7 @@ constexpr int TOP_K = 200;
 
 constexpr int GRID_SZ = NROWS / 2;
 
+const std::string CSV_FILE = "./csv/acuracy_";
 
 struct AccuracyData {
     int n_rows;
@@ -52,7 +54,7 @@ private:
     void register_cli_options(argparse::ArgumentParser &parser) override;
     std::vector<std::string> list_versions() override;
     void run_versions(class_umap<IAccuracy> versions, int repetitions, int warmup);
-    KernelStats run_impl(std::shared_ptr<IAccuracy> accuracy_impl, int repetitions, int warmup, AccuracyData &aData, AccuracySettings &aSettings,AccuracyResult &aResult);
+    std::forward_list<KernelStats> run_impl(std::shared_ptr<IAccuracy> accuracy_impl, int repetitions, int warmup, AccuracyData &aData, AccuracySettings &aSettings,AccuracyResult &aResult);
     int run_cpu(const AccuracyData &aData);
     AccuracyData random_data(int n_rows, int ndims, int top_k);
 };

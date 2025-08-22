@@ -150,17 +150,17 @@ void Bilateral::run_versions(class_umap<IBilateral> versions, int repetitions, i
 
 KernelStats Bilateral::run_impl(std::shared_ptr<IBilateral> bilateral_impl, int repetitions, int warmup, const BilateralData &bData, BilateralSettings &bSettings, BilateralResult &bResult) {
     KernelStats kstats;
-    StableMeanCriterion criterion(1000000, 5, 1);
+    ExecutionNumberCriterion criterion(repetitions);
     for (int _ = 0; _ < warmup; _++) {
         bilateral_impl->bilateral(bData, bSettings, bResult);
     }
     while (!criterion.should_stop()) {
-        KernelStats kstats = bilateral_impl->bilateral(bData, bSettings, bResult);
+        kstats = bilateral_impl->bilateral(bData, bSettings, bResult);
         criterion.observe(kstats);
     }
     reset_gpu();
 
-    return criterion.get_mean();
+    return kstats;
 }
 
 BilateralData Bilateral::random_data(const BilateralSettings &bSettings) {
