@@ -3,6 +3,8 @@
 #include <chrono>
 #include <hip/hip_runtime.h>
 #include "fpc-rc.hpp"
+#include "hip-utils.hpp"
+
 namespace{
 __device__
 unsigned my_abs ( int x )
@@ -170,19 +172,19 @@ void fpc_rc(const ulong* values, unsigned *cmp_size_hw, const int values_size, c
   *cmp_size_hw = 0;
   ulong* d_values;
   unsigned* d_cmp_size;
-  hipMalloc((void**)&d_values, values_size*sizeof(ulong));
-  hipMemcpy(d_values, values, values_size*sizeof(ulong), hipMemcpyHostToDevice);
-  hipMalloc((void**)&d_cmp_size, sizeof(unsigned));
-  hipMemcpy(d_cmp_size, cmp_size_hw, sizeof(unsigned), hipMemcpyHostToDevice);
+  CHECK_HIP(hipMalloc((void**)&d_values, values_size*sizeof(ulong)));
+  CHECK_HIP(hipMemcpy(d_values, values, values_size*sizeof(ulong), hipMemcpyHostToDevice));
+  CHECK_HIP(hipMalloc((void**)&d_cmp_size, sizeof(unsigned)));
+  CHECK_HIP(hipMemcpy(d_cmp_size, cmp_size_hw, sizeof(unsigned), hipMemcpyHostToDevice));
 
   dim3 grids (values_size/wgs);
   dim3 threads (wgs);
 
-  hipLaunchKernelGGL(fpc_rc_kernel, grids, threads, 0, 0, d_values, d_cmp_size);
+  CHECK_HIP(hipLaunchKernelGGL(fpc_rc_kernel, grids, threads, 0, 0, d_values, d_cmp_size));
 
-  hipMemcpy(cmp_size_hw, d_cmp_size, sizeof(unsigned), hipMemcpyDeviceToHost);
-  hipFree(d_values);
-  hipFree(d_cmp_size);
+  CHECK_HIP(hipMemcpy(cmp_size_hw, d_cmp_size, sizeof(unsigned), hipMemcpyDeviceToHost));
+  CHECK_HIP(hipFree(d_values));
+  CHECK_HIP(hipFree(d_cmp_size));
 }
 
 void fpc2_rc(const ulong* values, unsigned *cmp_size_hw, const int values_size, const int wgs)
@@ -190,19 +192,19 @@ void fpc2_rc(const ulong* values, unsigned *cmp_size_hw, const int values_size, 
   *cmp_size_hw = 0;
   ulong* d_values;
   unsigned* d_cmp_size;
-  hipMalloc((void**)&d_values, values_size*sizeof(ulong));
-  hipMemcpy(d_values, values, values_size*sizeof(ulong), hipMemcpyHostToDevice);
-  hipMalloc((void**)&d_cmp_size, sizeof(unsigned));
-  hipMemcpy(d_cmp_size, cmp_size_hw, sizeof(unsigned), hipMemcpyHostToDevice);
+  CHECK_HIP(hipMalloc((void**)&d_values, values_size*sizeof(ulong)));
+  CHECK_HIP(hipMemcpy(d_values, values, values_size*sizeof(ulong), hipMemcpyHostToDevice));
+  CHECK_HIP(hipMalloc((void**)&d_cmp_size, sizeof(unsigned)));
+  CHECK_HIP(hipMemcpy(d_cmp_size, cmp_size_hw, sizeof(unsigned), hipMemcpyHostToDevice));
 
   dim3 grids (values_size/wgs);
   dim3 threads (wgs);
 
-  hipLaunchKernelGGL(fpc2_rc_kernel, grids, threads, 0, 0, d_values, d_cmp_size);
+  CHECK_HIP(hipLaunchKernelGGL(fpc2_rc_kernel, grids, threads, 0, 0, d_values, d_cmp_size));
 
-  hipMemcpy(cmp_size_hw, d_cmp_size, sizeof(unsigned), hipMemcpyDeviceToHost);
-  hipFree(d_values);
-  hipFree(d_cmp_size);
+  CHECK_HIP(hipMemcpy(cmp_size_hw, d_cmp_size, sizeof(unsigned), hipMemcpyDeviceToHost));
+  CHECK_HIP(hipFree(d_values));
+  CHECK_HIP(hipFree(d_cmp_size));
 }
 REGISTER_CLASS(IFpc,RCFpc)
 

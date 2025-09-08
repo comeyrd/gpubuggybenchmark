@@ -17,7 +17,7 @@ if(BUILD_WITH_CUDA)
 elseif(BUILD_WITH_HIP)
     file(GLOB FLAWED_HIP "${ACCURACY_DIR}/*.hip" "${ACCURACY_DIR}/flawed/*.hip")
     add_library(accuracy STATIC ${ACCURACY_COMMON_SRC} ${FLAWED_HIP})
-    target_link_libraries(accuracy ${ACCURACY_LIB_TO_LINK})
+    target_link_libraries(accuracy ${ACCURACY_LIB_TO_LINK} hip_common)
     target_include_directories(accuracy PUBLIC ${ACCURACY_DIR_TO_INCLUDE} ${ACCURACY_DIR}/hip)
 
 elseif(BUILD_WITH_METAL)

@@ -50,17 +50,17 @@ void accuracy_refernce_kernel(
 void accuracy_reference(int nrows, int ndims, int top_k, int repeat, int* label, float *data){
 
   int *d_label;
-  hipMalloc((void**)&d_label, label_size_bytes);
-  hipMemcpy(d_label, label, label_size_bytes, hipMemcpyHostToDevice);
+  CHECK_HIP(hipMalloc((void**)&d_label, label_size_bytes));
+  CHECK_HIP(hipMemcpy(d_label, label, label_size_bytes, hipMemcpyHostToDevice));
 
   float *d_data;
-  hipMalloc((void**)&d_data, data_size_bytes);
-  hipMemcpy(d_data, data, data_size_bytes, hipMemcpyHostToDevice);
+  CHECK_HIP(hipMalloc((void**)&d_data, data_size_bytes));
+  CHECK_HIP(hipMemcpy(d_data, data, data_size_bytes, hipMemcpyHostToDevice));
 
   int *d_count;
-  hipMalloc((void**)&d_count, sizeof(int));
+  CHECK_HIP(hipMalloc((void**)&d_count, sizeof(int)));
 
-  hipDeviceSynchronize();
+  CHECK_HIP(hipDeviceSynchronize());
   dim3 block (GPU_NUM_THREADS);
 
   for (int ngrid = nrows / 4; ngrid <= nrows; ngrid += nrows / 4) {
@@ -71,25 +71,25 @@ void accuracy_reference(int nrows, int ndims, int top_k, int repeat, int* label,
     auto start = std::chrono::steady_clock::now();
 
     for (int i = 0; i < repeat; i++) {
-      hipMemset(d_count, 0, sizeof(int));
+      CHECK_HIP(hipMemset(d_count, 0, sizeof(int)));
       accuracy_kernel<<<grid, block>>>(nrows, ndims, top_k, d_data, d_label, d_count);
     }
 
-    hipDeviceSynchronize();
+    CHECK_HIP(hipDeviceSynchronize());
     auto end = std::chrono::steady_clock::now();
     auto time = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
     printf("Average execution time of accuracy kernel: %f (us)\n", (time * 1e-3f) / repeat);
 
     int count;
-    hipMemcpy(&count, d_count, sizeof(int), hipMemcpyDeviceToHost);
+    CHECK_HIP(hipMemcpy(&count, d_count, sizeof(int), hipMemcpyDeviceToHost));
     bool ok = (count == count_ref);
     printf("%s\n", ok ? "PASS" : "FAIL");
     // printf("Accuracy = %f\n", (float)count / nrows);
   }
 
-  hipFree(d_label);
-  hipFree(d_data);
-  hipFree(d_count);
+  CHECK_HIP(hipFree(d_label));
+  CHECK_HIP(hipFree(d_data));
+  CHECK_HIP(hipFree(d_count));
 }
 
 
@@ -126,17 +126,17 @@ int main(int argc, char* argv[])
   int count_ref = reference(nrows, ndims, top_k, data, label);
 
   int *d_label;
-  hipMalloc((void**)&d_label, label_size_bytes);
-  hipMemcpy(d_label, label, label_size_bytes, hipMemcpyHostToDevice);
+  CHECK_HIP(hipMalloc((void**)&d_label, label_size_bytes));
+  CHECK_HIP(hipMemcpy(d_label, label, label_size_bytes, hipMemcpyHostToDevice));
 
   float *d_data;
-  hipMalloc((void**)&d_data, data_size_bytes);
-  hipMemcpy(d_data, data, data_size_bytes, hipMemcpyHostToDevice);
+  CHECK_HIP(hipMalloc((void**)&d_data, data_size_bytes));
+  CHECK_HIP(hipMemcpy(d_data, data, data_size_bytes, hipMemcpyHostToDevice));
 
   int *d_count;
-  hipMalloc((void**)&d_count, sizeof(int));
+  CHECK_HIP(hipMalloc((void**)&d_count, sizeof(int)));
 
-  hipDeviceSynchronize();
+  CHECK_HIP(hipDeviceSynchronize());
   dim3 block (GPU_NUM_THREADS);
 
   for (int ngrid = nrows / 4; ngrid <= nrows; ngrid += nrows / 4) {
@@ -147,25 +147,25 @@ int main(int argc, char* argv[])
     auto start = std::chrono::steady_clock::now();
 
     for (int i = 0; i < repeat; i++) {
-      hipMemset(d_count, 0, sizeof(int));
+      CHECK_HIP(hipMemset(d_count, 0, sizeof(int)));
       accuracy_kernel<<<grid, block>>>(nrows, ndims, top_k, d_data, d_label, d_count);
     }
 
-    hipDeviceSynchronize();
+    CHECK_HIP(hipDeviceSynchronize());
     auto end = std::chrono::steady_clock::now();
     auto time = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
     printf("Average execution time of accuracy kernel: %f (us)\n", (time * 1e-3f) / repeat);
 
     int count;
-    hipMemcpy(&count, d_count, sizeof(int), hipMemcpyDeviceToHost);
+    CHECK_HIP(hipMemcpy(&count, d_count, sizeof(int), hipMemcpyDeviceToHost));
     bool ok = (count == count_ref);
     printf("%s\n", ok ? "PASS" : "FAIL");
     // printf("Accuracy = %f\n", (float)count / nrows);
   }
 
-  hipFree(d_label);
-  hipFree(d_data);
-  hipFree(d_count);
+  CHECK_HIP(hipFree(d_label));
+  CHECK_HIP(hipFree(d_data));
+  CHECK_HIP(hipFree(d_count));
 
   free(label);
   free(data);

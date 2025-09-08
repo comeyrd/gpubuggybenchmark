@@ -15,8 +15,8 @@ if(BUILD_WITH_CUDA)
 
 elseif(BUILD_WITH_HIP)
     file(GLOB FLAWED_CUDA "${FPC_DIR}/*.hip" "${FPC_DIR}/flawed/*.hip")
-    add_library(fpc STATIC ${FPC_COMMON_SRC} ${FLAWED_CUDA})
-    target_link_libraries(fpc ${FPC_LIB_TO_LINK})
+    add_library(fpc STATIC ${FPC_COMMON_SRC} ${FLAWED_CUDA} )
+    target_link_libraries(fpc ${FPC_LIB_TO_LINK} hip_common)
     
 elseif(BUILD_WITH_METAL)
     # Find all .metal shader files
