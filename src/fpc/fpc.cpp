@@ -155,4 +155,4 @@ void FPC::run_versions(class_umap<IFpc> versions,int repetitions){
   free(cbuffer);
 }
 
-REGISTER_CLASS(IKernel,FPC)
+//REGISTER_CLASS(IKernel,FPC)
