@@ -220,7 +220,7 @@ static void CudaTest(char *msg)
 {
   cudaError_t e;
 
-  cudaThreadSynchronize();
+  CHECK_CUDA(cudaThreadSynchronize());
   if (cudaSuccess != (e = cudaGetLastError())) {
     fprintf(stderr, "%s: %d\n", msg, e);
     fprintf(stderr, "%s\n", cudaGetErrorString(e));
@@ -232,7 +232,7 @@ static void CudaTest(char *msg)
 
 static void Compress(int blocks, int warpsperblock, int dimensionality)
 {
-  cudaGetLastError();  // reset error value
+  CHECK_CUDA(cudaGetLastError());  // reset error value
 
   // allocate CPU buffers
   ull *cbuf = (ull *)malloc(sizeof(ull) * MAX); // uncompressed data
@@ -390,7 +390,7 @@ static void Compress(int blocks, int warpsperblock, int dimensionality)
 
 static void Decompress(int blocks, int warpsperblock, int dimensionality, int doubles)
 {
-  cudaGetLastError();  // reset error value
+  CHECK_CUDA(cudaGetLastError());  // reset error value
 
   // allocate CPU buffers
   char *dbuf = (char *)malloc(sizeof(char) * ((MAX+1)/2*17)); // compressed data, divided by chunk
@@ -517,7 +517,7 @@ static int VerifySystemParameters()
   int arch_cores_sm[3] = { 1, 8, 32 }; 
   cudaDeviceProp deviceProp; 
 
-  cudaGetDeviceCount(&device_count);
+  CHECK_CUDA(cudaGetDeviceCount(&device_count));
   if (device_count == 0) {
     fprintf(stderr, "There is no device supporting CUDA\n");
     exit(-1);
@@ -525,7 +525,7 @@ static int VerifySystemParameters()
    
   // Find the best major SM Architecture GPU device 
   for (current_device = 0; current_device < device_count; current_device++) { 
-    cudaGetDeviceProperties(&deviceProp, current_device);
+    CHECK_CUDA(cudaGetDeviceProperties(&deviceProp, current_device));
     if (deviceProp.major > 0 && deviceProp.major < 9999) { 
       best_SM_arch = max(best_SM_arch, deviceProp.major); 
     }
@@ -533,7 +533,7 @@ static int VerifySystemParameters()
    
   // Find the best CUDA capable GPU device 
   for (current_device = 0; current_device < device_count; current_device++) { 
-    cudaGetDeviceProperties(&deviceProp, current_device); 
+    CHECK_CUDA(cudaGetDeviceProperties(&deviceProp, current_device)); 
     if (deviceProp.major == 9999 && deviceProp.minor == 9999) {
       sm_per_multiproc = 1;
     } 
@@ -563,7 +563,7 @@ static int VerifySystemParameters()
     } 
   } 
    
-  cudaGetDeviceProperties(&deviceProp, max_perf_device); 
+  CHECK_CUDA(cudaGetDeviceProperties(&deviceProp, max_perf_device)); 
   if ((deviceProp.major == 9999) && (deviceProp.minor == 9999)) {
     fprintf(stderr, "There is no CUDA capable  device\n");
     exit(-1);
@@ -595,10 +595,10 @@ int main(int argc, char *argv[])
   fprintf(stderr, "Copyright 2011-2020 Texas State University\n");
 
   device = VerifySystemParameters();
-  cudaSetDevice(device);
+  CHECK_CUDA(cudaSetDevice(device));
 
-  cudaFuncSetCacheConfig(CompressionKernel, cudaFuncCachePreferL1);
-  cudaFuncSetCacheConfig(DecompressionKernel, cudaFuncCachePreferL1);
+  CHECK_CUDA(cudaFuncSetCacheConfig(CompressionKernel, cudaFuncCachePreferL1));
+  CHECK_CUDA(cudaFuncSetCacheConfig(DecompressionKernel, cudaFuncCachePreferL1));
 
   if((3 == argc) || (4 == argc)) { /* compress */
     char dummy;

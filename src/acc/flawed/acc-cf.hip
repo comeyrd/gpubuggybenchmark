@@ -4,11 +4,10 @@
 #include <random>
 #include <hip/hip_runtime.h>
 #include <hipcub/hipcub.hpp>
-#include "acc-reference.hpp"
+#include "acc-cf.hpp"
 #include "hip-utils.hpp"
-
+//Data Locality, Using Shared memory for register memory
 #define GPU_NUM_THREADS 256
-//TODO Move the template inside the accuracy kernel and enum with possible gpu num threads
 
 template <typename T>
 __device__ void BlockReduce(T &input) {
@@ -18,9 +17,8 @@ __device__ void BlockReduce(T &input) {
 }
 
 __global__
-void accuracy_reference_kernel(const int N, const int D, const int top_k, const float* Xdata, const int* labelData, int* accuracy){
-  int count = 0;
-
+void accuracy_cf_kernel(const int N, const int D, const int top_k, const float* Xdata, const int* labelData, int* accuracy){
+  __shared__ int shared_counts[GPU_NUM_THREADS];//BUG
   for (int row = blockIdx.x; row < N; row += gridDim.x) {
     const int label = labelData[row];
     const float label_pred = Xdata[row * D + label];
@@ -32,17 +30,21 @@ void accuracy_reference_kernel(const int N, const int D, const int top_k, const 
       }
     }
     BlockReduce(ngt);
-    if (ngt <= top_k) {
-      ++count;
-    }
+    shared_counts[threadIdx.x] = ngt;
     __syncthreads();
   }
-  if (threadIdx.x == 0) { 
-    atomicAdd(accuracy, count);
-  }
+  if (threadIdx.x == 0) {
+      int partial_count = 0;
+      for (int i = 0; i < blockDim.x; ++i) {//BUG
+        if (shared_counts[i] <= top_k) {
+          ++partial_count;
+        }
+      }
+      atomicAdd(accuracy, partial_count);
+    }
 }
 
-KernelStats ReferenceAccuracy::accuracy(const AccuracyData &aData, const AccuracySettings &aSettings, AccuracyResult &aResult) const{
+KernelStats CFAccuracy::accuracy(const AccuracyData &aData, const AccuracySettings &aSettings, AccuracyResult &aResult) const{
     HipProfiling prof;
 
     prof.begin_mem2D();
@@ -64,7 +66,7 @@ KernelStats ReferenceAccuracy::accuracy(const AccuracyData &aData, const Accurac
     CHECK_HIP(hipMemset(d_count, 0, sizeof(int)));
     prof.end_mem2D();
     prof.begin_compute();
-    accuracy_reference_kernel<<<grid, block>>>(aData.n_rows, aData.ndims, aData.topk, d_data, d_label, d_count);
+    accuracy_cf_kernel<<<grid, block>>>(aData.n_rows, aData.ndims, aData.topk, d_data, d_label, d_count);
     prof.end_compute();
 
     CHECK_HIP(hipDeviceSynchronize());
@@ -78,4 +80,4 @@ KernelStats ReferenceAccuracy::accuracy(const AccuracyData &aData, const Accurac
     return prof.retreive();
 };
 
-REGISTER_CLASS(IAccuracy,ReferenceAccuracy);
+REGISTER_CLASS(IAccuracy,CFAccuracy);

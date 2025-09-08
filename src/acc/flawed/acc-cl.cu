@@ -46,21 +46,21 @@ KernelStats CLAccuracy::accuracy(const AccuracyData &aData, const AccuracySettin
 
     prof.begin_mem2D();
     int *d_label;
-    cudaMalloc((void**)&d_label, aData.label_sz_bytes);
-    cudaMemcpy(d_label, aData.label, aData.label_sz_bytes, cudaMemcpyHostToDevice);
+    CHECK_CUDA(cudaMalloc((void**)&d_label, aData.label_sz_bytes));
+    CHECK_CUDA(cudaMemcpy(d_label, aData.label, aData.label_sz_bytes, cudaMemcpyHostToDevice));
 
     float *d_data;
-    cudaMalloc((void**)&d_data, aData.label_sz_bytes);
-    cudaMemcpy(d_data, aData.data, aData.label_sz_bytes, cudaMemcpyHostToDevice);
+    CHECK_CUDA(cudaMalloc((void**)&d_data, aData.label_sz_bytes));
+    CHECK_CUDA(cudaMemcpy(d_data, aData.data, aData.label_sz_bytes, cudaMemcpyHostToDevice));
 
     int *d_count;
-    cudaMalloc((void**)&d_count, sizeof(int));
+    CHECK_CUDA(cudaMalloc((void**)&d_count, sizeof(int)));
 
     dim3 block (GPU_NUM_THREADS);
 
     dim3 grid (aSettings.grid_sz);
 
-    cudaMemset(d_count, 0, sizeof(int));
+    CHECK_CUDA(cudaMemset(d_count, 0, sizeof(int)));
     prof.end_mem2D();
     prof.begin_compute();
     accuracy_cl_kernel<<<grid, block>>>(aData.n_rows, aData.ndims, aData.topk, d_data, d_label, d_count);
@@ -68,12 +68,12 @@ KernelStats CLAccuracy::accuracy(const AccuracyData &aData, const AccuracySettin
 
     CHECK_CUDA(cudaDeviceSynchronize());
     prof.begin_mem2H();
-    cudaMemcpy(&aResult.count, d_count, sizeof(int), cudaMemcpyDeviceToHost);
+    CHECK_CUDA(cudaMemcpy(&aResult.count, d_count, sizeof(int), cudaMemcpyDeviceToHost));
     prof.end_mem2H();
 
-    cudaFree(d_label);
-    cudaFree(d_data);
-    cudaFree(d_count);
+    CHECK_CUDA(cudaFree(d_label));
+    CHECK_CUDA(cudaFree(d_data));
+    CHECK_CUDA(cudaFree(d_count));
     return prof.retreive();
 };
 

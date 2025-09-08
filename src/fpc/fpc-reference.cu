@@ -173,19 +173,19 @@ void fpc_reference(const ulong* values, unsigned *cmp_size_hw, const int values_
   *cmp_size_hw = 0;
   ulong* d_values;
   unsigned* d_cmp_size;
-  cudaMalloc((void**)&d_values, values_size*sizeof(ulong));
-  cudaMemcpy(d_values, values, values_size*sizeof(ulong), cudaMemcpyHostToDevice);
-  cudaMalloc((void**)&d_cmp_size, sizeof(unsigned));
-  cudaMemcpy(d_cmp_size, cmp_size_hw, sizeof(unsigned), cudaMemcpyHostToDevice);
+  CHECK_CUDA(cudaMalloc((void**)&d_values, values_size*sizeof(ulong)));
+  CHECK_CUDA(cudaMemcpy(d_values, values, values_size*sizeof(ulong), cudaMemcpyHostToDevice));
+  CHECK_CUDA(cudaMalloc((void**)&d_cmp_size, sizeof(unsigned)));
+  CHECK_CUDA(cudaMemcpy(d_cmp_size, cmp_size_hw, sizeof(unsigned), cudaMemcpyHostToDevice));
 
   dim3 grids (values_size/wgs);
   dim3 threads (wgs);
 
   fpc_reference_kernel<<<grids, threads>>>(d_values, d_cmp_size);
 
-  cudaMemcpy(cmp_size_hw, d_cmp_size, sizeof(unsigned), cudaMemcpyDeviceToHost);
-  cudaFree(d_values);
-  cudaFree(d_cmp_size);
+  CHECK_CUDA(cudaMemcpy(cmp_size_hw, d_cmp_size, sizeof(unsigned), cudaMemcpyDeviceToHost));
+  CHECK_CUDA(cudaFree(d_values));
+  CHECK_CUDA(cudaFree(d_cmp_size));
 }
 
 void fpc2_reference(const ulong* values, unsigned *cmp_size_hw, const int values_size, const int wgs)
@@ -193,18 +193,18 @@ void fpc2_reference(const ulong* values, unsigned *cmp_size_hw, const int values
   *cmp_size_hw = 0;
   ulong* d_values;
   unsigned* d_cmp_size;
-  cudaMalloc((void**)&d_values, values_size*sizeof(ulong));
-  cudaMemcpy(d_values, values, values_size*sizeof(ulong), cudaMemcpyHostToDevice);
-  cudaMalloc((void**)&d_cmp_size, sizeof(unsigned));
-  cudaMemcpy(d_cmp_size, cmp_size_hw, sizeof(unsigned), cudaMemcpyHostToDevice);
+  CHECK_CUDA(cudaMalloc((void**)&d_values, values_size*sizeof(ulong)));
+  CHECK_CUDA(cudaMemcpy(d_values, values, values_size*sizeof(ulong), cudaMemcpyHostToDevice));
+  CHECK_CUDA(cudaMalloc((void**)&d_cmp_size, sizeof(unsigned)));
+  CHECK_CUDA(cudaMemcpy(d_cmp_size, cmp_size_hw, sizeof(unsigned), cudaMemcpyHostToDevice));
 
   dim3 grids (values_size/wgs);
   dim3 threads (wgs);
 
   fpc2_reference_kernel<<<grids, threads>>>(d_values, d_cmp_size);
 
-  cudaMemcpy(cmp_size_hw, d_cmp_size, sizeof(unsigned), cudaMemcpyDeviceToHost);
-  cudaFree(d_values);
-  cudaFree(d_cmp_size);
+  CHECK_CUDA(cudaMemcpy(cmp_size_hw, d_cmp_size, sizeof(unsigned), cudaMemcpyDeviceToHost));
+  CHECK_CUDA(cudaFree(d_values));
+  CHECK_CUDA(cudaFree(d_cmp_size));
 }
 REGISTER_CLASS(IFpc,ReferenceFpc)

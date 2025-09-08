@@ -22,7 +22,7 @@ ulong *convertBuffer2Array(char *cbuffer, unsigned size, unsigned step);
 
 class FPC : public IKernel{
     public:
-        int run_kernel(int argc,char** argv);
+        int run_kernel(int argc,char** argv) override;
     private : 
         void run_versions(class_umap<IFpc> versions,int repetitions);
         void run_impl(std::shared_ptr<IFpc> fpc_impl, ulong* values, unsigned values_size, int cmp_size, int work_group_sz, int repeat);

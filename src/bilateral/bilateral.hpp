@@ -68,7 +68,7 @@ public:
 
 class Bilateral : public IKernel {
 public:
-    int run_kernel(int argc, char **argv);
+    int run_kernel(int argc, char **argv) override;
 
 private:
     void register_cli_options(argparse::ArgumentParser &parser) override;

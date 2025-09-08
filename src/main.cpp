@@ -9,10 +9,12 @@ int main(int argc, char **argv) {
     argparse::ArgumentParser program("gb-benchmark", VERSION_STRING,argparse::default_arguments::version);
     bool list;
     bool help;
+    bool all;
     std::string kernel;
     auto &group = program.add_mutually_exclusive_group(true);
     group.add_argument("kernel").nargs(argparse::nargs_pattern::optional).store_into(kernel).help("Name of the selected Kernel");
     group.add_argument("-lk", "--list-kernels").help("lists available kernels").store_into(list);
+    group.add_argument("-a").help("Run all kernels and all versions").store_into(all);
     group.add_argument("-h").help("shows help message and exits").store_into(help);
 
     try {
@@ -35,6 +37,8 @@ int main(int argc, char **argv) {
     }else if(help){
         std::cerr << program;
         return 0;
+    }else if(all){
+        run_all(argc,argv);
     }
     else{
         std::cerr << "Missing 'kernel' or '--list-kernels' argument"<<std::endl;
@@ -49,6 +53,13 @@ void list_kernels() {
     std::cout << "Available Kernels :  "<<std::endl;
     for (const kernel_pair &pair : kernels) {
         std::cout << pair.first << std::endl;
+    }
+}
+
+void run_all(int argc, char** argv){
+    class_umap<IKernel> kernels = Manager<IKernel>::instance()->getClasses();
+     for (const kernel_pair &pair : kernels) {
+        pair.second->run_kernel(argc,argv);
     }
 }
 

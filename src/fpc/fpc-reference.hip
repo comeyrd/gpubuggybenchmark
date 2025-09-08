@@ -5,13 +5,14 @@
 #include "fpc-reference.hpp"
 #include "hip-utils.hpp"
 
-namespace{
+namespace {
 __device__
 unsigned my_abs ( int x )
 {
   unsigned t = x >> 31;
   return (x ^ t) - t;
 }
+
 __device__
 unsigned f1(ulong value, bool* mask) {
   if (value == 0) {
@@ -180,7 +181,7 @@ void fpc_reference(const ulong* values, unsigned *cmp_size_hw, const int values_
   dim3 grids (values_size/wgs);
   dim3 threads (wgs);
 
-  CHECK_HIP(hipLaunchKernelGGL(fpc_reference_kernel, grids, threads, 0, 0, d_values, d_cmp_size));
+  fpc_reference_kernel<<<grids, threads>>>(d_values, d_cmp_size);
 
   CHECK_HIP(hipMemcpy(cmp_size_hw, d_cmp_size, sizeof(unsigned), hipMemcpyDeviceToHost));
   CHECK_HIP(hipFree(d_values));
@@ -200,7 +201,7 @@ void fpc2_reference(const ulong* values, unsigned *cmp_size_hw, const int values
   dim3 grids (values_size/wgs);
   dim3 threads (wgs);
 
-  CHECK_HIP(hipLaunchKernelGGL(fpc2_reference_kernel, grids, threads, 0, 0, d_values, d_cmp_size));
+  fpc2_reference_kernel<<<grids, threads>>>(d_values, d_cmp_size);
 
   CHECK_HIP(hipMemcpy(cmp_size_hw, d_cmp_size, sizeof(unsigned), hipMemcpyDeviceToHost));
   CHECK_HIP(hipFree(d_values));

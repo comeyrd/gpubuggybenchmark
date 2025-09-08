@@ -5,5 +5,6 @@
 #include "Kernel.hpp"
 
 void list_kernels();
+void run_all(int argc, char** argv);
 kernel_pair get_kernel(std::string kernel);
 #endif

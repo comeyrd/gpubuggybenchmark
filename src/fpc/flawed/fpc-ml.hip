@@ -4,8 +4,7 @@
 #include <hip/hip_runtime.h>
 #include "fpc-ml.hpp"
 #include "hip-utils.hpp"
-
-namespace{
+namespace {
 __device__
 unsigned my_abs ( int x )
 {
@@ -180,10 +179,10 @@ void fpc_ml(const ulong* values, unsigned *cmp_size_hw, const int values_size, c
   dim3 grids (values_size/wgs);
   dim3 threads (wgs);
 
-  CHECK_HIP(hipLaunchKernelGGL(fpc_ml_kernel, grids, threads, 0, 0, d_values, d_cmp_size));
+  fpc_ml_kernel<<<grids, threads>>>(d_values, d_cmp_size);
 
   CHECK_HIP(hipMemcpy(cmp_size_hw, d_cmp_size, sizeof(unsigned), hipMemcpyDeviceToHost));
-  //hipFree(d_values); BUG 
+  //hipFree(d_values); BUG
   CHECK_HIP(hipFree(d_cmp_size));
 }
 
@@ -200,7 +199,7 @@ void fpc2_ml(const ulong* values, unsigned *cmp_size_hw, const int values_size, 
   dim3 grids (values_size/wgs);
   dim3 threads (wgs);
 
-  CHECK_HIP(hipLaunchKernelGGL(fpc2_ml_kernel, grids, threads, 0, 0, d_values, d_cmp_size));
+  fpc2_ml_kernel<<<grids, threads>>>(d_values, d_cmp_size);
 
   CHECK_HIP(hipMemcpy(cmp_size_hw, d_cmp_size, sizeof(unsigned), hipMemcpyDeviceToHost));
   //hipFree(d_values); BUG
