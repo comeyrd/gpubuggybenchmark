@@ -3,7 +3,7 @@
 
 template <int R>
 void templated_run_cpu(const BilateralData &bData, const BilateralSettings &settings, BilateralData &bResult) {
-#pragma omp parallel for collapse(2)
+#pragma omp parallel for collapse(2) 
     for (uint idx = 0; idx < bData.width; idx++) {
         for (uint idy = 0; idy < bData.height; idy++) {
 

@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.15)
 
 project(gpubuggy LANGUAGES CXX)
 ##TODO setup Debug & Release
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -O3 -g")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -O3 -g -fopenmp -funroll-loops")
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -Wall -O0 -g")
 include(CheckLanguage)
 check_language(CUDA)
@@ -66,12 +66,13 @@ FetchContent_MakeAvailable(argparse)
 
 set(KERNELS_TO_LINK accuracy bilateral fpc)
 
+find_package(OpenMP REQUIRED)
 
 if(APPLE)
     add_dependencies(gpubuggy fpc)
     target_link_libraries(gpubuggy PRIVATE argparse "-Wl,-all_load" ${KERNELS_TO_LINK})
 elseif(UNIX)
-    target_link_libraries(gpubuggy PRIVATE argparse "-Wl,--whole-archive" ${KERNELS_TO_LINK} "-Wl,--no-whole-archive")
+    target_link_libraries(gpubuggy PRIVATE argparse "-Wl,--whole-archive" ${KERNELS_TO_LINK} "-Wl,--no-whole-archive" OpenMP::OpenMP_CXX)
 endif()
 
 target_include_directories(gpubuggy PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)

@@ -16,20 +16,18 @@ constexpr int TOP_K = 10;
 
 const std::string CSV_FILE = "./csv/acuracy_";
 
-struct AccuracySettings {
+struct AccuracySettings : BaseSettings{
    //int block_nbr; Problem with cubreduce because the blocksize needs to be known at compile time.
     int n_rows = NROWS;
     int ndims = NDIMS;
     int topk = TOP_K;
-    int repetitions;
-    int warmup;
     int grid_sz = (NROWS + GPU_NUM_THREADS - 1) / GPU_NUM_THREADS;
-    AccuracySettings(int n_rows_,int ndims_, int topk_, int repetitions_, int warmup_):n_rows(n_rows_),ndims(ndims_), topk(topk_), repetitions(repetitions_), warmup(warmup_),
-          grid_sz((n_rows_ + GPU_NUM_THREADS - 1) / GPU_NUM_THREADS){};
-    AccuracySettings(int repetitions_, int warmup_):repetitions(repetitions_),warmup(warmup_){};
+    AccuracySettings(int repetitions_, int warmup_) : BaseSettings(repetitions_,warmup_){};
+    AccuracySettings(int n_rows_,int ndims_, int topk_, int repetitions_, int warmup_): BaseSettings(repetitions_,warmup_), n_rows(n_rows_),ndims(ndims_), topk(topk_),
+        grid_sz((n_rows_ + GPU_NUM_THREADS - 1) / GPU_NUM_THREADS){};
 };
 
-struct AccuracyData {
+struct AccuracyData : BaseData {
     int n_rows;
     int ndims;
     int *label;
@@ -37,7 +35,7 @@ struct AccuracyData {
     float *data;
     size_t data_sz_bytes;
     int topk;
-    explicit AccuracyData(const AccuracySettings& settings){
+    explicit AccuracyData(const AccuracySettings& settings) : BaseData(settings){
         n_rows = settings.n_rows;
         ndims = settings.ndims;
         topk = settings.topk;
@@ -56,26 +54,21 @@ struct AccuracyData {
         }
     }
 
-    void generate_random();
+    void generate_random() override;
 
     ~AccuracyData(){
         free(label);
         free(data);
     }
-    //Making the thing not copiable etc etc
-    AccuracyData(const AccuracyData&) = delete;
-    AccuracyData& operator=(const AccuracyData&) = delete;
-    AccuracyData(AccuracyData&&) noexcept = default;
-    AccuracyData& operator=(AccuracyData&&) noexcept = default;
 };
 
 
-struct AccuracyResult {
+struct AccuracyResult : BaseResult{
     int count;
     bool operator==(const AccuracyResult& other) const {
     return other.count == this->count;
 };
-    explicit AccuracyResult(const AccuracySettings &settings){ 
+    explicit AccuracyResult(const AccuracySettings &settings): BaseResult(settings){ 
         count = 0;
     };
 };

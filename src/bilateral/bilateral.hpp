@@ -20,25 +20,23 @@ constexpr int HEIGHT = 4000;
 
 constexpr float ROUNDING_ERROR = 1e-3;
 
-struct BilateralSettings {
-    int repetitions;
-    int warmup;
+struct BilateralSettings : BaseSettings {
     int width = WIDTH;
     int height = HEIGHT;
     float a_square = A_SQUARE;
     float variance_I = VARIANCE_I;
     float variance_spatial = VARIANCE_SPATIALE;
-    BilateralSettings(int repetitions_, int warmup_):repetitions(repetitions_),warmup(warmup_){};
+    BilateralSettings(int repetitions_, int warmup_):BaseSettings(repetitions_,warmup_){};
 };
 
-struct BilateralData {
+struct BilateralData : BaseData,BaseResult {
     uint width;
     uint height;
     size_t b_size;
     uint size;
     float *image;
 
-    explicit BilateralData(const BilateralSettings &settings){
+    explicit BilateralData(const BilateralSettings &settings) : BaseData(settings),BaseResult(settings){
         width = settings.width;
         height = settings.height;
         size = settings.width * settings.height;
@@ -48,7 +46,7 @@ struct BilateralData {
 
     };
 
-    void generate_random();
+    void generate_random() override;
 
     ~BilateralData(){
         free(image);
@@ -71,11 +69,6 @@ struct BilateralData {
             return false;
         }
     }
-    //Making the thing not copiable etc etc
-    BilateralData(const BilateralData&) = delete;
-    BilateralData& operator=(const BilateralData&) = delete;
-    BilateralData(BilateralData&&) noexcept = default;
-    BilateralData& operator=(BilateralData&&) noexcept = default;
 };
 
 inline std::ostream& operator<<(std::ostream& os , BilateralData &a_result) {

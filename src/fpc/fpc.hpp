@@ -10,44 +10,37 @@
 
 constexpr uint _WORK_GROUP_SIZE = 256;
 constexpr size_t _LENGTH = _WORK_GROUP_SIZE * 4500000;//250M
-struct FPCSettings {
-    int repetitions;
-    int warmup;
+struct FPCSettings : BaseSettings{
     size_t length = _LENGTH;
     uint wgz = _WORK_GROUP_SIZE;
-    FPCSettings(int repetitions_, int warmup_):repetitions(repetitions_),warmup(warmup_){};
+    explicit FPCSettings(int repetitions_, int warmup_): BaseSettings(repetitions_,warmup_){};
 };
 
-struct FPCData {
+struct FPCData : BaseData {
     size_t length;
     size_t b_size;
     ulong* values;
 
-    explicit FPCData(const FPCSettings &settings){
+    explicit FPCData(const FPCSettings &settings) : BaseData(settings){
         length = settings.length;
         b_size = length * sizeof(ulong);
         values = (ulong *)malloc(b_size);
         if (!values) throw std::bad_alloc();
     };
 
-    void generate_random();
+    void generate_random() override;
 
     ~FPCData(){
         free(values);
     }
-    //Making the thing not copiable etc etc
-    FPCData(const FPCData&) = delete;
-    FPCData& operator=(const FPCData&) = delete;
-    FPCData(FPCData&&) noexcept = default;
-    FPCData& operator=(FPCData&&) noexcept = default;
 };
 
-struct FPCResult {
+struct FPCResult : BaseResult{
     unsigned size_;
-    bool operator==(const FPCResult& other) const {
+    bool operator==(const FPCResult& other) const{
     return other.size_ == this->size_;
 };
-    explicit FPCResult(const FPCSettings &settings){ 
+    explicit FPCResult(const FPCSettings &settings): BaseResult(settings){ 
         size_ = 0;
     };
 };
