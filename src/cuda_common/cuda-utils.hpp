@@ -24,7 +24,7 @@ class CudaProfiling{
     void end_mem2H();
     void begin_compute();
     void end_compute();
-    KernelStats retreive(); 
+    KernelStats retreive(int repetitions); 
 };
 
 //TODO Update the tools to use "nsys" and "ncu" and other.

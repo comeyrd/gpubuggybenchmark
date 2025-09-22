@@ -1,34 +1,74 @@
 #ifndef FPC_H
 #define FPC_H
+#include "Kernel.hpp"
+#include "Manager.hpp"
+#include "gpu-utils.hpp"
+#include "version.hpp"
 #include <memory>
 #include <string>
 #include <unordered_map>
-#include "Manager.hpp"
-#include "Kernel.hpp"
-#include "version.hpp"
 
-typedef unsigned long ulong;
-constexpr int WORK_GROUP_SZ = 200;
-
-class IFpc {
-public:
-    virtual ~IFpc() = default;
-    virtual void fpc(const ulong *values, unsigned *cmp_size_hw, const int values_size, const int wgs) const = 0;
-    virtual void fpc2(const ulong *values, unsigned *cmp_size_hw, const int values_size, const int wgs) const = 0;
+constexpr uint _WORK_GROUP_SIZE = 256;
+constexpr size_t _LENGTH = _WORK_GROUP_SIZE * 4500000;//250M
+struct FPCSettings {
+    int repetitions;
+    int warmup;
+    size_t length = _LENGTH;
+    uint wgz = _WORK_GROUP_SIZE;
+    FPCSettings(int repetitions_, int warmup_):repetitions(repetitions_),warmup(warmup_){};
 };
 
-ulong *convertBuffer2Array(char *cbuffer, unsigned size, unsigned step);
+struct FPCData {
+    size_t length;
+    size_t b_size;
+    ulong* values;
 
+    explicit FPCData(const FPCSettings &settings){
+        length = settings.length;
+        b_size = length * sizeof(ulong);
+        values = (ulong *)malloc(b_size);
+        if (!values) throw std::bad_alloc();
+    };
 
-class FPC : public IKernel{
-    public:
-        int run_kernel(int argc,char** argv) override;
-    private : 
-        void run_versions(class_umap<IFpc> versions,int repetitions);
-        void run_impl(std::shared_ptr<IFpc> fpc_impl, ulong* values, unsigned values_size, int cmp_size, int work_group_sz, int repeat);
-        void register_cli_options(argparse::ArgumentParser& parser) override;
-        std::vector<std::string> list_versions() override;
+    void generate_random();
+
+    ~FPCData(){
+        free(values);
+    }
+    //Making the thing not copiable etc etc
+    FPCData(const FPCData&) = delete;
+    FPCData& operator=(const FPCData&) = delete;
+    FPCData(FPCData&&) noexcept = default;
+    FPCData& operator=(FPCData&&) noexcept = default;
+};
+
+struct FPCResult {
+    unsigned size_;
+    bool operator==(const FPCResult& other) const {
+    return other.size_ == this->size_;
+};
+    explicit FPCResult(const FPCSettings &settings){ 
+        size_ = 0;
+    };
+};
+
+inline std::ostream& operator<<(std::ostream& os,const FPCResult &result) {
+    os << result.size_ ;
+    return os;
 };
 
 
+using IFPC = IVersion<FPCData,FPCSettings,FPCResult>;
+
+
+class FPC : public IKernel<FPCData, FPCSettings, FPCResult >{
+
+    public :
+        FPC() = default;
+        std::string name() override{
+            return "FPC";
+        }
+    private:
+        void run_cpu() override;
+};
 #endif

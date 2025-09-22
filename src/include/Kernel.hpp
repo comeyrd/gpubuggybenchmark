@@ -1,143 +1,102 @@
 #ifndef Kernel_HPP
 #define Kernel_HPP
-#include <argparse/argparse.hpp>
 #include "Manager.hpp"
-#include <deque>
-#include <fstream>
-
-class IKernel{
-    public:
-        virtual ~IKernel() = default;
-        virtual int run_kernel(int argc,char** argv) = 0;
-    private: 
-        virtual void register_cli_options(argparse::ArgumentParser& parser) = 0;
-        virtual std::vector<std::string> list_versions() = 0;
-};
-
-typedef class_pair<IKernel> kernel_pair ;
-
-
-struct KernelStats{
-    float memcpy2D = 0;//Mem init + copy 2device
-    float memcpy2H = 0;//copy back 2 host
-    float compute = 0;//Kernel launch time
-
-KernelStats operator+(const KernelStats& other) const {
-    return {
-        this->memcpy2D + other.memcpy2D,
-        this->memcpy2H + other.memcpy2H,
-        this->compute + other.compute,
-    };
-}
-KernelStats operator-(const KernelStats& other) const {
-    return {
-        this->memcpy2D - other.memcpy2D,
-        this->memcpy2H - other.memcpy2H,
-        this->compute - other.compute,
-    };
-}
-KernelStats& operator-=(const KernelStats& other) {
-    this->memcpy2D -= other.memcpy2D;
-    this->memcpy2H -= other.memcpy2H;
-    this->compute -= other.compute;
-    return *this;
-}
-KernelStats& operator+=(const KernelStats& other) {
-    this->memcpy2D += other.memcpy2D;
-    this->memcpy2H += other.memcpy2H;
-    this->compute += other.compute;
-    return *this;
-}
-KernelStats& operator/=(float scalar) {
-    this->memcpy2D /= scalar;
-    this->memcpy2H /= scalar;
-    this->compute /= scalar;
-    return *this;
-}
-KernelStats operator/(const KernelStats& other) const{
-    return {
-        this->memcpy2D / other.memcpy2D,
-        this->memcpy2H / other.memcpy2H,
-        this->compute / other.compute,
-    };
-};
-
-KernelStats operator/(float scalar) const {
-    return {
-        this->memcpy2D / scalar,
-        this->memcpy2H / scalar,
-        this->compute / scalar,
-    };
-}
- bool operator<=(uint value) const {
-        return std::abs(memcpy2D) <= value && std::abs(memcpy2H) <=value && std::abs(compute) <= value;
-    }
-};
-
-inline std::ostream& operator<<(std::ostream& os,KernelStats e_stat) {
-    os << "Memory load time, to device = " << e_stat.memcpy2D << " ms" << " to Host : "<<  e_stat.memcpy2H << " ms | Compute time =  "<< e_stat.compute << " ms";
-    return os;
-}
+#include "KernelStats.hpp"
+#include <type_traits>
+#include <utility>
+#include <vector>
+#include "gpu-utils.hpp"
+#include <argparse/argparse.hpp>
+#include "version.hpp"
+//Template for Settings
 template <typename T>
-struct CSVExportable;
+class has_warmup_and_repetitions {
+private:
+    template <typename U>
+    static auto test(int) -> decltype(std::declval<U>().warmup,std::declval<U>().repetitions,std::is_constructible<U,int,int>::value, std::true_type());
 
-template <>
-struct CSVExportable<KernelStats> {
-    static std::string header() {
-        return "memcpy2D,memcpy2H,compute";
-    }
+    template <typename U>
+    static std::false_type test(...);
 
-    static std::string values(const KernelStats& ks) {
-        std::ostringstream oss;
-        oss << std::fixed << std::setprecision(6) << ks.memcpy2D << "," << ks.memcpy2H << "," << ks.compute;
-        return oss.str();
-    }
+public:
+    static constexpr bool value = decltype(test<T>(0))::value;
 };
 
-template <typename Iterable>
-void exportCsvToStream(const Iterable& data,std::ostream &os){
-    using T = typename Iterable::value_type;
-    static_assert(std::is_class_v<CSVExportable<T>>, 
-                  "CSVExportable<T> specialization required for this type");
-    os << CSVExportable<T>::header() << std::endl;
-    for (const auto& item : data){
-        os << CSVExportable<T>::values(item) << std::endl;
-    }
-}
+//Template for Data
+template <typename Data, typename Settings>
+class has_generate_random {
+private:
+    template <typename U>
+    static auto test(int) -> decltype(
+        std::declval<U>().generate_random(), std::true_type());
 
-template <typename Iterable>
-void exportCsv(const Iterable& data, const std::string &filename){
-    using T = typename Iterable::value_type;
-    static_assert(std::is_class_v<CSVExportable<T>>, 
-                  "CSVExportable<T> specialization required for this type");
-    std::ofstream file(filename);
-    if (!file.is_open()) {
-        throw std::runtime_error("Could not open file: " + filename);
-    }
-    exportCsvToStream(data,file);
-}
+    template <typename U>
+    static std::false_type test(...);
 
-
-
-class ICriterion{
-    public : 
-        virtual void observe(const KernelStats& stat) = 0;
-        virtual bool should_stop() const = 0;
-        virtual ~ICriterion() = default;
+public:
+    static constexpr bool value = decltype(test<Data>(0))::value;
 };
 
-class ExecutionNumberCriterion: public ICriterion{
+
+//Template for Data and result -> allocated with Settings info
+template <typename Data, typename Settings>
+class is_instantiable_by {
+private:
+    template <typename U>
+    static auto test(int) -> decltype(std::is_constructible<U, const Settings&>::value, std::true_type());
+    template <typename U>
+    static std::false_type test(...);
+
+public:
+    static constexpr bool value = decltype(test<Data>(0))::value;
+};
+
+template <typename Data, typename Settings, typename Result>
+class IVersion{
     public :
-    ExecutionNumberCriterion(int nb_iter):max_iter(nb_iter){}
-    void observe(const KernelStats& stat) override{
-        count++;
-    }
-    bool should_stop() const override{
-        return count>=max_iter;
-    }
-    private:
-    int max_iter;
-    int count = 0;
+    virtual ~IVersion() = default;
+    virtual KernelStats run(const Data &data, const Settings &settings,Result &result) const = 0;
 };
+
+class I_IKernel {
+public:
+    virtual ~I_IKernel() = default;
+    virtual void run(int argc, char** argv) = 0;
+    virtual std::string name() = 0;
+    I_IKernel() = default;
+};
+
+using kernel_pair = std::pair<const std::string,std::shared_ptr<I_IKernel>>;
+
+constexpr int DEF_WARMUP = 5;
+constexpr int DEF_REPETITIONS = 400;
+
+template <typename Data, typename Settings, typename Result>
+class IKernel : public I_IKernel {
+    static_assert(has_warmup_and_repetitions<Settings>::value,
+                  "Settings must have both member variables 'warmup' and 'repetitions'");
+    static_assert(has_generate_random<Data,Settings>::value,
+                  "Data must have a 'generate_random' function");
+    static_assert(is_instantiable_by<Data,Settings>::value,
+                  "Data must be instantiable by Settings");
+    static_assert(is_instantiable_by<Result,Settings>::value,
+                  "Result must be instantiable by Settings");
+    protected:
+        Settings settings;
+        Data data;
+        Result cpu_result;
+
+    public: 
+        IKernel() : settings(DEF_REPETITIONS,DEF_WARMUP),data(settings),cpu_result(settings){};
+        void run(int argc, char** argv) override;
+    private:
+        virtual void run_cpu() = 0; //PUT THE RESULT OF THE COMPUTATION INSIDE cpu_result !!!
+        KernelStats run_impl(std::shared_ptr<IVersion<Data,Settings,Result>> version_impl,Result& result);
+        void run_versions(class_umap<IVersion<Data,Settings,Result>> versions);
+        void run_versions_repeat_outside(class_umap<IVersion<Data,Settings,Result>> versions,int subrep,int outerrep);
+        std::vector<std::string> list_version();
+};
+
+#include "Kernel.tpp"
 
 #endif

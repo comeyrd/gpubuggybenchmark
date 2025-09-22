@@ -14,8 +14,10 @@ int main(int argc, char **argv) {
     auto &group = program.add_mutually_exclusive_group(true);
     group.add_argument("kernel").nargs(argparse::nargs_pattern::optional).store_into(kernel).help("Name of the selected Kernel");
     group.add_argument("-lk", "--list-kernels").help("lists available kernels").store_into(list);
-    group.add_argument("-a").help("Run all kernels and all versions").store_into(all);
+    group.add_argument("-A").help("Run all kernels and all versions").store_into(all);
     group.add_argument("-h").help("shows help message and exits").store_into(help);
+    program.add_argument("--repetitions", "-r").default_value(400).scan<'i', int>().help("Number of repetitions of execution of each Version");
+
 
     try {
         program.parse_known_args(argc, argv);
@@ -26,10 +28,12 @@ int main(int argc, char **argv) {
     }
     if (list) {
         list_kernels();
+    }else if(all){
+        run_all(argc,argv);
     } else if(program.is_used("kernel")) {
         try{
             kernel_pair kp = get_kernel(kernel);
-            return kp.second->run_kernel(argc,argv);
+            kp.second->run(argc,argv);
         }catch(const std::exception &e){
             std::cerr << e.what() << std::endl;
             return 1;
@@ -37,8 +41,6 @@ int main(int argc, char **argv) {
     }else if(help){
         std::cerr << program;
         return 0;
-    }else if(all){
-        run_all(argc,argv);
     }
     else{
         std::cerr << "Missing 'kernel' or '--list-kernels' argument"<<std::endl;
@@ -49,7 +51,7 @@ int main(int argc, char **argv) {
 }
 
 void list_kernels() {
-    class_umap<IKernel> kernels = Manager<IKernel>::instance()->getClasses();
+    class_umap<I_IKernel> kernels = Manager<I_IKernel>::instance()->getClasses();
     std::cout << "Available Kernels :  "<<std::endl;
     for (const kernel_pair &pair : kernels) {
         std::cout << pair.first << std::endl;
@@ -57,15 +59,15 @@ void list_kernels() {
 }
 
 void run_all(int argc, char** argv){
-    class_umap<IKernel> kernels = Manager<IKernel>::instance()->getClasses();
+    class_umap<I_IKernel> kernels = Manager<I_IKernel>::instance()->getClasses();
      for (const kernel_pair &pair : kernels) {
-        pair.second->run_kernel(argc,argv);
+        pair.second->run(argc,argv);
     }
 }
 
 kernel_pair get_kernel(std::string kernel){
-    class_umap<IKernel> kernels = Manager<IKernel>::instance()->getClasses();
-    for (const auto &pair : kernels) {
+    class_umap<I_IKernel> kernels = Manager<I_IKernel>::instance()->getClasses();
+    for (const kernel_pair &pair : kernels) {
         const std::string &name = pair.first;
         if(name.compare(kernel) == 0)
             return pair;

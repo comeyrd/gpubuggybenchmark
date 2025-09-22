@@ -1,22 +1,25 @@
 set(FPC_DIR ${CMAKE_SOURCE_DIR}/fpc)
 
 set(FPC_COMMON_SRC
-    ${FPC_DIR}/fpc-cpu.cpp
     ${FPC_DIR}/fpc.cpp
 )
 
 set(FPC_LIB_TO_LINK argparse)
+
+set(FPC_DIR_TO_INCLUDE ${FPC_DIR} ${FPC_DIR}/flawed/include ${CMAKE_SOURCE_DIR}/include)
 
 if(BUILD_WITH_CUDA)
     file(GLOB FLAWED_CUDA "${FPC_DIR}/*.cu" "${FPC_DIR}/flawed/*.cu")
     add_library(fpc STATIC ${FPC_COMMON_SRC} ${FLAWED_CUDA})    
     set_target_properties(fpc PROPERTIES CUDA_ARCHITECTURES 70)
     target_link_libraries(fpc ${FPC_LIB_TO_LINK} cuda_common)
+    target_include_directories(fpc PUBLIC ${FPC_DIR_TO_INCLUDE})
 
 elseif(BUILD_WITH_HIP)
     file(GLOB FLAWED_CUDA "${FPC_DIR}/*.hip" "${FPC_DIR}/flawed/*.hip")
     add_library(fpc STATIC ${FPC_COMMON_SRC} ${FLAWED_CUDA} )
     target_link_libraries(fpc ${FPC_LIB_TO_LINK} hip_common)
+    target_include_directories(fpc PUBLIC ${FPC_DIR_TO_INCLUDE})
     
 elseif(BUILD_WITH_METAL)
     # Find all .metal shader files
@@ -64,5 +67,3 @@ elseif(BUILD_WITH_METAL)
     target_link_libraries(fpc PUBLIC "-framework Metal" ${ACCURACY_LIB_TO_LINK})
 
 endif()
-
-target_include_directories(fpc PUBLIC ${FPC_DIR} ${FPC_DIR}/flawed ${CMAKE_SOURCE_DIR}/include)

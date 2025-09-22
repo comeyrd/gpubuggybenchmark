@@ -24,10 +24,11 @@ ALL_BUGS = {
     "LU":"Suboptimal code generation by the compiler - Missed Loop Unrolling",
     "LU":"Suboptimal code generation by the compiler - Missed Function inlining",
     "PS":"Missing Paralelism - missing SIMD parallelism",
+    "AB":"Artificial Barrier - Useless barrier",
     "PG":"Missing Paralelism - missing GPU parallelism",
     "PT":"Missing Paralelism - missing TASK parallelism",
     "PW":"Inefficient parallelization - Inefficient work partitionning",
-    "MA":"Memory Overhead - Repeated calls for allocation instead of one big allocation",
+    "MA":"Memory Overhead - repetitionsed calls for allocation instead of one big allocation",
     "MO":"Memory Overhead - Redundant memory operation",
 }
 
@@ -73,6 +74,7 @@ def copy_and_replace_bug(bigram: str, template_dir, output_dir,file_extension,ke
 
 
 
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Process bigram argument")
 
@@ -80,7 +82,7 @@ if __name__ == "__main__":
 
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument("-a", "--all", action="store_true", help="Generate all versions for this kernel")
-    group.add_argument("-b","--birgram", type=str, help="A 2-character bigram identifier")
+    group.add_argument("-b","--bigram", type=str, help="A 2-character bigram identifier")
     parser.add_argument("desc", type=str, nargs="*", default=[], help="The description of the version (optional)")
 
     args = parser.parse_args()

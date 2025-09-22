@@ -64,7 +64,7 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(argparse)
 
-set(KERNELS_TO_LINK fpc accuracy bilateral)
+set(KERNELS_TO_LINK accuracy bilateral fpc)
 
 
 if(APPLE)

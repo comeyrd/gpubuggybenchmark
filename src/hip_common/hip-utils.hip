@@ -67,7 +67,7 @@ void HipProfiling::end_compute(){
 };
 
 
-KernelStats HipProfiling::retreive(){
+KernelStats HipProfiling::retreive(int repetitions){
     CHECK_HIP(hipEventSynchronize(memstop2D));
     CHECK_HIP(hipEventSynchronize(computestop));
     CHECK_HIP(hipEventSynchronize(memstop2H));
@@ -85,6 +85,6 @@ KernelStats HipProfiling::retreive(){
         CHECK_HIP(hipEventDestroy(computestop));
         destroy = true;
     }
-   
+   stats.repetitions = repetitions;
     return stats;
 }

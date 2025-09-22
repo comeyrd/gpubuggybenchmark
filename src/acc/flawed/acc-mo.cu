@@ -42,41 +42,44 @@ void accuracy_mo_kernel(const int N, const int D, const int top_k, const float* 
   }
 }
 
-KernelStats MOAccuracy::accuracy(const AccuracyData &aData, const AccuracySettings &aSettings, AccuracyResult &aResult) const{
+KernelStats MOAccuracy::run(const AccuracyData &data, const AccuracySettings &settings, AccuracyResult &result) const{
     CudaProfiling prof;
 
     prof.begin_mem2D();
     int *d_label;
-    CHECK_CUDA(cudaMalloc((void**)&d_label, aData.label_sz_bytes));
-    CHECK_CUDA(cudaMemcpy(d_label, aData.label, aData.label_sz_bytes, cudaMemcpyHostToDevice));
+    CHECK_CUDA(cudaMalloc((void**)&d_label, data.label_sz_bytes));
+    CHECK_CUDA(cudaMemcpy(d_label, data.label, data.label_sz_bytes, cudaMemcpyHostToDevice));
 
     float *d_data;
-    CHECK_CUDA(cudaMalloc((void**)&d_data, aData.label_sz_bytes));
-    CHECK_CUDA(cudaMemcpy(d_data, aData.data, aData.label_sz_bytes, cudaMemcpyHostToDevice));
-    CHECK_CUDA(cudaMemcpy(d_data, aData.data, aData.label_sz_bytes, cudaMemcpyHostToDevice));//BUG
+    CHECK_CUDA(cudaMalloc((void**)&d_data, data.data_sz_bytes));
+    CHECK_CUDA(cudaMemcpy(d_data, data.data, data.label_sz_bytes, cudaMemcpyHostToDevice));
+    CHECK_CUDA(cudaMemcpy(d_data, data.data, data.label_sz_bytes, cudaMemcpyHostToDevice));//BUG
 
     int *d_count;
     CHECK_CUDA(cudaMalloc((void**)&d_count, sizeof(int)));
 
     dim3 block (GPU_NUM_THREADS);
 
-    dim3 grid (aSettings.grid_sz);
+    dim3 grid (settings.grid_sz);
 
-    CHECK_CUDA(cudaMemset(d_count, 0, sizeof(int)));
+    
     prof.end_mem2D();
     prof.begin_compute();
-    accuracy_mo_kernel<<<grid, block>>>(aData.n_rows, aData.ndims, aData.topk, d_data, d_label, d_count);
+    for(int r = 0 ; r < settings.repetitions ; r++){
+      CHECK_CUDA(cudaMemset(d_count, 0, sizeof(int)));
+      accuracy_mo_kernel<<<grid, block>>>(data.n_rows, data.ndims, data.topk, d_data, d_label, d_count);
+    }
     prof.end_compute();
 
     CHECK_CUDA(cudaDeviceSynchronize());
     prof.begin_mem2H();
-    CHECK_CUDA(cudaMemcpy(&aResult.count, d_count, sizeof(int), cudaMemcpyDeviceToHost));
+    CHECK_CUDA(cudaMemcpy(&result.count, d_count, sizeof(int), cudaMemcpyDeviceToHost));
     prof.end_mem2H();
 
     CHECK_CUDA(cudaFree(d_label));
     CHECK_CUDA(cudaFree(d_data));
     CHECK_CUDA(cudaFree(d_count));
-    return prof.retreive();
+    return prof.retreive(settings.repetitions);
 };
 
 REGISTER_CLASS(IAccuracy,MOAccuracy);

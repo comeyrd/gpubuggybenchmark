@@ -4,7 +4,7 @@
 
 class ReferenceBilateral : public IBilateral {
 public:
-    KernelStats bilateral(const BilateralData &aData, const BilateralSettings &aSettings, BilateralResult &aResult) const override;
+    KernelStats run(const BilateralData &data, const BilateralSettings &settings, BilateralData &result) const override;
 };
 
 #endif

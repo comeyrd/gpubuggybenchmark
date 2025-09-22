@@ -7,6 +7,7 @@ void setup_gpu(){
 
 void reset_gpu(){
     CHECK_CUDA(cudaDeviceReset());
+    //setup_gpu();
 }
 
 void check_cuda_error(cudaError_t error_code,const char* file, int line){
@@ -35,7 +36,7 @@ CudaProfiling::~CudaProfiling(){
             CHECK_CUDA(cudaEventDestroy(computestart));
             CHECK_CUDA(cudaEventDestroy(computestop));
         }catch(std::exception &e){
-            std::cerr << "Error destroying Cuda profiler" << e.what()<<std::endl;
+            //std::cerr << "Error destroying Cuda profiler" << e.what()<<std::endl;
         }
     }
     
@@ -67,7 +68,7 @@ void CudaProfiling::end_compute(){
 };
 
 
-KernelStats CudaProfiling::retreive(){
+KernelStats CudaProfiling::retreive(int repetitions){
     CHECK_CUDA(cudaEventSynchronize(memstop2D));
     CHECK_CUDA(cudaEventSynchronize(computestop));
     CHECK_CUDA(cudaEventSynchronize(memstop2H));
@@ -85,6 +86,6 @@ KernelStats CudaProfiling::retreive(){
         CHECK_CUDA(cudaEventDestroy(computestop));
         destroy = true;
     }
-   
+    stats.repetitions_inside = repetitions;
     return stats;
 }

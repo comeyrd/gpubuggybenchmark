@@ -32,7 +32,13 @@ def convert_cuda_files_in_folder(folder_path,recode=False):
             if filename.endswith(".cu"):
                 file_exists = False
                 input_path = os.path.join(root, filename)
+                parent_dir = os.path.basename(os.path.dirname(input_path))
                 output_path = os.path.splitext(input_path)[0] + ".hip"
+                if parent_dir == "flawed":
+                    target_dir = os.path.join(os.path.dirname(input_path), "hip")
+                    os.makedirs(target_dir, exist_ok=True)
+                    output_path = os.path.join(target_dir,os.path.splitext(filename)[0] + ".hip")
+
 
                 # Skip if .hip file already exists
                 if os.path.exists(output_path):

@@ -23,7 +23,9 @@ __constant__ int *offd; // ptr to chunk offsets after compression
 /*
 This is the GPU compression kernel, which should be launched using the block count
 and warps/block:
-  CompressionKernel<<<blocks, WARPSIZE*warpsperblock>>>();
+  for(int r = 0 ; r < settings.repetitions ; r++){
+    CompressionKernel<<<blocks, WARPSIZE*warpsperblock>>>();
+  }
 
 Inputs
 ------
@@ -124,7 +126,9 @@ __global__ void CompressionKernel()
 /*
 This is the GPU decompression kernel, which should be launched using the block count
 and warps/block:
-  CompressionKernel<<<blocks, WARPSIZE*warpsperblock>>>();
+  for(int r = 0 ; r < settings.repetitions ; r++){
+    CompressionKernel<<<blocks, WARPSIZE*warpsperblock>>>();
+  }
 
 Inputs
 ------
@@ -327,7 +331,9 @@ static void Compress(int blocks, int warpsperblock, int dimensionality)
     fprintf(stderr, "copying of cut to device failed\n");
   CudaTest("cut copy to device failed");
 
-  CompressionKernel<<<blocks, WARPSIZE*warpsperblock>>>();
+  for(int r = 0 ; r < settings.repetitions ; r++){
+    CompressionKernel<<<blocks, WARPSIZE*warpsperblock>>>();
+  }
   CudaTest("compression kernel launch failed");
 
   // transfer offsets back to CPU
@@ -477,7 +483,9 @@ static void Decompress(int blocks, int warpsperblock, int dimensionality, int do
     fprintf(stderr, "copying of cut to device failed\n");
   CudaTest("cut copy to device failed");
 
-  DecompressionKernel<<<blocks, WARPSIZE*warpsperblock>>>();
+  for(int r = 0 ; r < settings.repetitions ; r++){
+    DecompressionKernel<<<blocks, WARPSIZE*warpsperblock>>>();
+  }
   CudaTest("decompression kernel launch failed");
 
   // transfer result back to CPU

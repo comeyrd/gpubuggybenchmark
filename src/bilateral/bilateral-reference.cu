@@ -22,13 +22,9 @@ __global__ void bilateralFilter(
   float normalization = 0;
 
   // window centered at the coordinate (idx, idy)
-#ifdef LOOP_UNROLL
   #pragma unroll
-#endif
   for(int i = -R; i <= R; i++) {
-#ifdef LOOP_UNROLL
     #pragma unroll
-#endif
     for(int j = -R; j <= R; j++) {
 
       int idk = idx+i;
@@ -60,24 +56,26 @@ __global__ void bilateralFilter(
   }
   out[id] = res/normalization;
 }
+KernelStats ReferenceBilateral::run(const BilateralData &data, const BilateralSettings &settings, BilateralData &result) const {
 
-KernelStats ReferenceBilateral::bilateral(const BilateralData &aData, const BilateralSettings &aSettings, BilateralResult &aResult) const {
   float *d_src, *d_dst;
   CudaProfiling prof;
   prof.begin_mem2D();
-  CHECK_CUDA(cudaMalloc((void**)&d_dst, aData.size * sizeof(float)));
-  CHECK_CUDA(cudaMalloc((void**)&d_src, aData.size * sizeof(float)));
+  CHECK_CUDA(cudaMalloc((void**)&d_dst, data.size * sizeof(float)));
+  CHECK_CUDA(cudaMalloc((void**)&d_src, data.size * sizeof(float)));
 
-  CHECK_CUDA(cudaMemcpy(d_src, aData.inputImage, aData.size * sizeof(float), cudaMemcpyHostToDevice)); 
+  CHECK_CUDA(cudaMemcpy(d_src, data.image, data.size * sizeof(float), cudaMemcpyHostToDevice)); 
   prof.end_mem2D();
   dim3 threads (16, 16);
-  dim3 blocks ((aData.width+15)/16, (aData.height+15)/16);
+  dim3 blocks ((data.width+15)/16, (data.height+15)/16);
   prof.begin_compute();
-  bilateralFilter<3><<<blocks, threads>>>(d_src, d_dst, aData.width, aData.height, aSettings.a_square, aSettings.variance_I, aSettings.variance_spatial);
+  for(int r = 0 ; r < settings.repetitions ; r++){
+    bilateralFilter<4><<<blocks, threads>>>(d_src, d_dst, data.width, data.height, settings.a_square, settings.variance_I, settings.variance_spatial);
+  }
   prof.end_compute();
   prof.begin_mem2H();
-  CHECK_CUDA(cudaMemcpy(aResult.outputImage, d_dst, aData.size * sizeof(float), cudaMemcpyDeviceToHost)); 
+  CHECK_CUDA(cudaMemcpy(result.image, d_dst, data.size * sizeof(float), cudaMemcpyDeviceToHost)); 
   prof.end_mem2H();
-  return prof.retreive();
+  return prof.retreive(settings.repetitions);
 };
 REGISTER_CLASS(IBilateral,ReferenceBilateral);
