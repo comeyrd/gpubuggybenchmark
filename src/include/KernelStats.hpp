@@ -4,62 +4,53 @@
 #include <iostream>
 #include <fstream>
 #include <string>      // std::string
+#include "Kernel.hpp"
 
 struct KernelStats{
     float memcpy2D = 0;//Mem init + copy 2device
     float memcpy2H = 0;//copy back 2 host
-    float compute = 0;//Kernel launch time
-    uint repetitions_inside = 0;
-    uint repetitions_outside = 0;
+    float* warmup_duration;
+    float* repetitions_duration;
+    float mean_warmup;
+    float mean_repetitions;
+    int nb_w;
+    int nb_r;
+    BaseSettings settings;
     bool str_ver_ker = false;//if the kernel and version have been allocated and filled
     std::string kernel;
     std::string version;
+    explicit KernelStats(BaseSettings settings_):settings(settings_){
+        warmup_duration = new float[settings.warmup];
+        repetitions_duration = new float[settings.repetitions];
+    }
+    ~KernelStats(){
+        delete warmup_duration;
+        delete repetitions_duration;
+    }
     void set_kernel_version(const std::string& kernel_, const std::string &version_){
         kernel = kernel_;
         version = version_;
         str_ver_ker = true;
+        compute_mean();
     }
-KernelStats operator+(const KernelStats& other) const {
-    return {
-        this->memcpy2D + other.memcpy2D,
-        this->memcpy2H + other.memcpy2H,
-        this->compute + other.compute,
-        this->repetitions_inside + other.repetitions_inside,
-        this->repetitions_outside + other.repetitions_outside,
-    };
-}
-KernelStats operator-(const KernelStats& other) const {
-    return {
-        this->memcpy2D - other.memcpy2D,
-        this->memcpy2H - other.memcpy2H,
-        this->compute - other.compute,
-        this->repetitions_inside - other.repetitions_inside,
-        this->repetitions_outside - other.repetitions_outside,
-    };
-}
-KernelStats& operator-=(const KernelStats& other) {
-    this->memcpy2D -= other.memcpy2D;
-    this->memcpy2H -= other.memcpy2H;
-    this->compute -= other.compute;
-    this->repetitions_inside -= other.repetitions_inside;
-    this->repetitions_outside -= other.repetitions_outside;
-    return *this;
-}
-KernelStats& operator+=(const KernelStats& other) {
-    this->memcpy2D += other.memcpy2D;
-    this->memcpy2H += other.memcpy2H;
-    this->compute += other.compute;
-    this->repetitions_inside += other.repetitions_inside;
-    this->repetitions_outside += other.repetitions_outside;
-    return *this;
-}
- bool operator<=(uint value) const {
-        return std::abs(memcpy2D) <= value && std::abs(memcpy2H) <=value && std::abs(compute) <= value;
+    void compute_mean(){
+        float total = 0;
+        for(int w = 0; w < nb_w;w++){
+            total+=warmup_duration[w];
+        }
+        mean_warmup = total / nb_w;
+        total = 0;
+        for(int r = 0; r < nb_r;r++){
+            total+=repetitions_duration[r];
+        }
+        mean_repetitions = total / nb_r;
     }
 };
-
-inline std::ostream& operator<<(std::ostream& os,KernelStats e_stat) {
-    os << "Repetitions inside : " <<e_stat.repetitions_inside <<" outside :"<< e_stat.repetitions_outside <<"| kernel_time per kernel: " << e_stat.compute / e_stat.repetitions_inside << " | memcpy H2D : "<<  e_stat.memcpy2D << "  | memcpy D2H : "<< e_stat.memcpy2H << " ms";
+    inline std::ostream& operator<<(std::ostream& os, KernelStats &e_stat) {
+    if(e_stat.mean_repetitions == 0){
+       e_stat.compute_mean();
+    }
+    os  << "Warmup mean per kernel: " << e_stat.mean_warmup <<"| repetitions mean per kernel: " << e_stat.mean_repetitions << " | memcpy H2D : "<<  e_stat.memcpy2D << "  | memcpy D2H : "<< e_stat.memcpy2H << " ms" << std::endl;
     return os;
 };
 
@@ -69,12 +60,24 @@ struct CSVExportable;
 template <>
 struct CSVExportable<KernelStats> {
     static std::string header() {
-        return "memcpy2D,memcpy2H,compute,repetitions_inside,repetitions_outside,kernel,version";
+        return "memcpy2D,memcpy2H,warmup_duration,repetitions_duration,warmup,repetitions,kernel,version";
     }
 
     static std::string values(const KernelStats& ks) {
         std::ostringstream oss;
-        oss << std::fixed << std::setprecision(6) << ks.memcpy2D << "," << ks.memcpy2H << "," << ks.compute << "," << ks.repetitions_inside<< "," << ks.repetitions_outside;
+        oss << std::fixed << std::setprecision(6) << ks.memcpy2D << "," << ks.memcpy2H << "," ;
+        for (int w = 0; w < ks.nb_w-1;w++){
+            oss << ks.warmup_duration[w] << "|";
+        }
+        oss << ks.warmup_duration[ks.nb_w-1] << ",";
+
+        for (int r = 0; r < ks.nb_r-1;r++){
+            oss << ks.repetitions_duration[r] << "|";
+        }
+        oss << ks.repetitions_duration[ks.nb_r-1] << ",";
+        
+        oss << ks.settings.warmup << "," << ks.settings.repetitions;
+
         if (ks.str_ver_ker){
             oss << "," << ks.kernel << "," << ks.version;    
         }else{

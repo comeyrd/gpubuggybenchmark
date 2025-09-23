@@ -1,6 +1,5 @@
 #ifndef Kernel_HPP
 #define Kernel_HPP
-#include "KernelStats.hpp"
 #include "Manager.hpp"
 #include "gpu-utils.hpp"
 #include "version.hpp"
@@ -14,6 +13,7 @@ struct BaseSettings {
     int warmup;
     BaseSettings(int _repetitions, int _warmup) : repetitions(_repetitions), warmup(_warmup) {};
 };
+#include "KernelStats.hpp"
 
 struct BaseData {
     virtual void generate_random() = 0;

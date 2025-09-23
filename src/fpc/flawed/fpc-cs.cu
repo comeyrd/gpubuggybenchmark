@@ -66,7 +66,7 @@ fpc_cs_kernel(const ulong *values, unsigned *cmp_size, size_t* length) {
 }
 
 KernelStats CSFPC::run(const FPCData &data, const FPCSettings &settings, FPCResult &result) const {
-  CudaProfiling prof;
+  CudaProfiling prof(settings);
   ulong* d_values;
   unsigned* d_cmp_size;
   size_t* d_length;
@@ -85,13 +85,20 @@ KernelStats CSFPC::run(const FPCData &data, const FPCSettings &settings, FPCResu
   prof.end_mem2D();
   dim3 grids (data.length/settings.wgz);
   dim3 threads (settings.wgz);
-  prof.begin_compute();
-  for(int r = 0 ; r < settings.repetitions ; r++){
+ for(int w = 0; w < settings.warmup ; w++){
+    prof.begin_warmup();
     CHECK_CUDA(cudaMemset(d_cmp_size, 0, sizeof(int)));
     fpc_cs_kernel<<<grids, threads>>>(d_values, d_cmp_size,d_length);
     CHECK_CUDA(cudaDeviceSynchronize());//BUG
+    prof.end_warmup();
   }
-  prof.end_compute();
+  for(int r = 0 ; r < settings.repetitions ; r++){
+    prof.begin_repetition();
+    CHECK_CUDA(cudaMemset(d_cmp_size, 0, sizeof(int)));
+    fpc_cs_kernel<<<grids, threads>>>(d_values, d_cmp_size,d_length);
+    CHECK_CUDA(cudaDeviceSynchronize());//BUG
+    prof.end_repetition();
+  }
   prof.begin_mem2H();
   CHECK_CUDA(cudaMemcpy(&result.size_, d_cmp_size, sizeof(unsigned), cudaMemcpyDeviceToHost));
   CHECK_CUDA(cudaDeviceSynchronize());//BUG
@@ -99,7 +106,7 @@ KernelStats CSFPC::run(const FPCData &data, const FPCSettings &settings, FPCResu
   CHECK_CUDA(cudaFree(d_values));
   CHECK_CUDA(cudaFree(d_length));
   CHECK_CUDA(cudaFree(d_cmp_size));
-  return prof.retreive(settings.repetitions);
+  return prof.retreive();
 };
 
 REGISTER_CLASS(IFPC,CSFPC)

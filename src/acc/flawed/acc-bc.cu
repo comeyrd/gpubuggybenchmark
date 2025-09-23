@@ -43,7 +43,7 @@ void accuracy_bc_kernel(const int N, const int D, const int top_k, const float* 
 }
 
 KernelStats BCAccuracy::run(const AccuracyData &data, const AccuracySettings &settings, AccuracyResult &result) const{
-    CudaProfiling prof;
+    CudaProfiling prof(settings);
 
     prof.begin_mem2D();
     int *d_label;
@@ -68,13 +68,20 @@ KernelStats BCAccuracy::run(const AccuracyData &data, const AccuracySettings &se
     
     CHECK_CUDA(cudaDeviceSynchronize());//BUG
     prof.end_mem2D();
-    prof.begin_compute();
-    for(int r = 0 ; r < settings.repetitions ; r++){
-      CHECK_CUDA(cudaMemset(d_count, 0, sizeof(int)));
-      accuracy_bc_kernel<<<grid, block>>>(data.n_rows, data.ndims, data.topk, d_data, d_label, d_count);
+     for(int w = 0; w < settings.warmup ; w++){
+        prof.begin_warmup();
+        CHECK_CUDA(cudaMemset(d_count, 0, sizeof(int)));
+        accuracy_bc_kernel<<<grid, block>>>(data.n_rows, data.ndims, data.topk, d_data, d_label, d_count);
+        CHECK_CUDA(cudaDeviceSynchronize());//BUG
+        prof.end_warmup();
     }
-    CHECK_CUDA(cudaDeviceSynchronize());//BUG
-    prof.end_compute();
+    for(int r = 0 ; r < settings.repetitions ; r++){
+        prof.begin_repetition();
+        CHECK_CUDA(cudaMemset(d_count, 0, sizeof(int)));
+        accuracy_bc_kernel<<<grid, block>>>(data.n_rows, data.ndims, data.topk, d_data, d_label, d_count);
+        CHECK_CUDA(cudaDeviceSynchronize());//BUG
+        prof.end_repetition();
+    }
 
     CHECK_CUDA(cudaDeviceSynchronize());
     prof.begin_mem2H();
@@ -85,7 +92,7 @@ KernelStats BCAccuracy::run(const AccuracyData &data, const AccuracySettings &se
     CHECK_CUDA(cudaFree(d_label));
     CHECK_CUDA(cudaFree(d_data));
     CHECK_CUDA(cudaFree(d_count));
-    return prof.retreive(settings.repetitions);
+    return prof.retreive();
 };
 
 REGISTER_CLASS(IAccuracy,BCAccuracy);

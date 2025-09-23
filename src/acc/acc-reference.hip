@@ -63,11 +63,16 @@ KernelStats ReferenceAccuracy::accuracy(const AccuracyData &data, const Accuracy
 
     CHECK_HIP(hipMemset(d_count, 0, sizeof(int)));
     prof.end_mem2D();
-    prof.begin_compute();
-    for(int r = 0 ; r < settings.repetitions ; r++){
+    for(int w = 0; w < settings.warmup ; w++){
+      prof.begin_warmup();
       accuracy_reference_kernel<<<grid, block>>>(data.n_rows, data.ndims, data.topk, d_data, d_label, d_count);
+      prof.end_warmup();
     }
-    prof.end_compute();
+    for(int r = 0 ; r < settings.repetitions ; r++){
+      prof.begin_repetition();
+      accuracy_reference_kernel<<<grid, block>>>(data.n_rows, data.ndims, data.topk, d_data, d_label, d_count);
+      prof.end_repetition();
+    }
 
     CHECK_HIP(hipDeviceSynchronize());
     prof.begin_mem2H();
@@ -77,7 +82,7 @@ KernelStats ReferenceAccuracy::accuracy(const AccuracyData &data, const Accuracy
     CHECK_HIP(hipFree(d_label));
     CHECK_HIP(hipFree(d_data));
     CHECK_HIP(hipFree(d_count));
-    return prof.retreive(settings.repetitions);
+    return prof.retreive();
 };
 
 REGISTER_CLASS(IAccuracy,ReferenceAccuracy);

@@ -2,7 +2,6 @@
 #include "gpu-utils.hpp"
 #include "cuda-utils.hpp"
 // Removing restrict, reducing optimization opportunities
-//TODO
 template<int R>
 __global__ void bilateralFilter(
     const float * in,//BUG
@@ -61,7 +60,7 @@ __global__ void bilateralFilter(
 KernelStats REBilateral::run(const BilateralData &data, const BilateralSettings &settings, BilateralData &result) const {
 
   float *d_src, *d_dst;
-  CudaProfiling prof;
+  CudaProfiling prof(settings);
   prof.begin_mem2D();
   CHECK_CUDA(cudaMalloc((void**)&d_dst, data.size * sizeof(float)));
   CHECK_CUDA(cudaMalloc((void**)&d_src, data.size * sizeof(float)));
@@ -70,14 +69,19 @@ KernelStats REBilateral::run(const BilateralData &data, const BilateralSettings 
   prof.end_mem2D();
   dim3 threads (16, 16);
   dim3 blocks ((data.width+15)/16, (data.height+15)/16);
-  prof.begin_compute();
-  for(int r = 0 ; r < settings.repetitions ; r++){
+  for(int w = 0; w < settings.warmup ; w++){
+    prof.begin_warmup();
     bilateralFilter<4><<<blocks, threads>>>(d_src, d_dst, data.width, data.height, settings.a_square, settings.variance_I, settings.variance_spatial);
+    prof.end_warmup();
   }
-  prof.end_compute();
+  for(int r = 0 ; r < settings.repetitions ; r++){
+    prof.begin_repetition();
+    bilateralFilter<4><<<blocks, threads>>>(d_src, d_dst, data.width, data.height, settings.a_square, settings.variance_I, settings.variance_spatial);
+    prof.end_repetition();
+  }
   prof.begin_mem2H();
   CHECK_CUDA(cudaMemcpy(result.image, d_dst, data.size * sizeof(float), cudaMemcpyDeviceToHost)); 
   prof.end_mem2H();
-  return prof.retreive(settings.repetitions);
+  return prof.retreive();
 };
 REGISTER_CLASS(IBilateral,REBilateral);

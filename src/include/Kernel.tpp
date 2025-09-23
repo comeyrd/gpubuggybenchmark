@@ -54,7 +54,6 @@ void IKernel<Data, Settings, Result>::run(int argc, char **argv) {
 template <typename Data, typename Settings, typename Result>
 KernelStats IKernel<Data, Settings, Result>::run_impl(
     std::shared_ptr<IVersion<Data, Settings, Result>> version_impl, Result &result) {
-    KernelStats kstats;
     return version_impl->run(data, settings, result);
 }
 

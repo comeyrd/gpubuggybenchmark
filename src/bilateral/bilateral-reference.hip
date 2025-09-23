@@ -72,14 +72,19 @@ KernelStats ReferenceBilateral::bilateral(const BilateralData &data, const Bilat
   prof.end_mem2D();
   dim3 threads (16, 16);
   dim3 blocks ((data.width+15)/16, (data.height+15)/16);
-  prof.begin_compute();
-  for(int r = 0 ; r < settings.repetitions ; r++){
+  for(int w = 0; w < settings.warmup ; w++){
+    prof.begin_warmup();
     bilateralFilter<3><<<blocks, threads>>>(d_src, d_dst, data.width, data.height, settings.a_square, settings.variance_I, settings.variance_spatial);
+    prof.end_warmup();
   }
-  prof.end_compute();
+  for(int r = 0 ; r < settings.repetitions ; r++){
+    prof.begin_repetition();
+    bilateralFilter<3><<<blocks, threads>>>(d_src, d_dst, data.width, data.height, settings.a_square, settings.variance_I, settings.variance_spatial);
+    prof.end_repetition();
+  }
   prof.begin_mem2H();
   CHECK_HIP(hipMemcpy(result.image, d_dst, data.size * sizeof(float), hipMemcpyDeviceToHost)); 
   prof.end_mem2H();
-  return prof.retreive(settings.repetitions);
+  return prof.retreive();
 };
 REGISTER_CLASS(IBilateral,ReferenceBilateral);

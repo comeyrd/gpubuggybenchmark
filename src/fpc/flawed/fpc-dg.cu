@@ -67,7 +67,7 @@ fpc_dg_kernel(const ulong *values, unsigned *cmp_size, size_t* length,unsigned* 
 }
 
 KernelStats DGFPC::run(const FPCData &data, const FPCSettings &settings, FPCResult &result) const {
-  CudaProfiling prof;
+  CudaProfiling prof(settings);
   ulong* d_values;
   unsigned* d_cmp_size;
   unsigned* d_compressable;
@@ -84,23 +84,25 @@ KernelStats DGFPC::run(const FPCData &data, const FPCSettings &settings, FPCResu
 
   prof.end_mem2D();
 
-  prof.begin_compute();
-  for(int r = 0 ; r < settings.repetitions ; r++){
+  for(int w = 0; w < settings.warmup ; w++){
+    prof.begin_warmup();
     CHECK_CUDA(cudaMemset(d_cmp_size, 0, sizeof(int)));
     fpc_dg_kernel<<<grids, threads>>>(d_values, d_cmp_size,d_length,d_compressable);
-    cudaError_t err = cudaGetLastError();  // check launch errors
-    if (err != cudaSuccess) {
-        printf("CUDA launch error: %s\n", cudaGetErrorString(err));
-    }
+    prof.end_warmup();
   }
-  prof.end_compute();
+  for(int r = 0 ; r < settings.repetitions ; r++){
+    prof.begin_repetition();
+    CHECK_CUDA(cudaMemset(d_cmp_size, 0, sizeof(int)));
+    fpc_dg_kernel<<<grids, threads>>>(d_values, d_cmp_size,d_length,d_compressable);
+    prof.end_repetition();
+  }
   prof.begin_mem2H();
   CHECK_CUDA(cudaMemcpy(&result.size_, d_cmp_size, sizeof(unsigned), cudaMemcpyDeviceToHost));
   prof.end_mem2H();
   CHECK_CUDA(cudaFree(d_values));
   CHECK_CUDA(cudaFree(d_length));
   CHECK_CUDA(cudaFree(d_cmp_size));
-  return prof.retreive(settings.repetitions);
+  return prof.retreive();
 };
 
 REGISTER_CLASS(IFPC,DGFPC)

@@ -43,7 +43,7 @@ void accuracy_ml_kernel(const int N, const int D, const int top_k, const float* 
 }
 
 KernelStats MLAccuracy::run(const AccuracyData &data, const AccuracySettings &settings, AccuracyResult &result) const{
-    CudaProfiling prof;
+    CudaProfiling prof(settings);
 
     prof.begin_mem2D();
     int *d_label;
@@ -63,12 +63,18 @@ KernelStats MLAccuracy::run(const AccuracyData &data, const AccuracySettings &se
 
     
     prof.end_mem2D();
-    prof.begin_compute();
-    for(int r = 0 ; r < settings.repetitions ; r++){
+    for(int w = 0; w < settings.warmup ; w++){
+      prof.begin_warmup();
       CHECK_CUDA(cudaMemset(d_count, 0, sizeof(int)));
       accuracy_ml_kernel<<<grid, block>>>(data.n_rows, data.ndims, data.topk, d_data, d_label, d_count);
+      prof.end_warmup();
     }
-    prof.end_compute();
+    for(int r = 0 ; r < settings.repetitions ; r++){
+      prof.begin_repetition();
+      CHECK_CUDA(cudaMemset(d_count, 0, sizeof(int)));
+      accuracy_ml_kernel<<<grid, block>>>(data.n_rows, data.ndims, data.topk, d_data, d_label, d_count);
+      prof.end_repetition();
+    }
 
     CHECK_CUDA(cudaDeviceSynchronize());
     prof.begin_mem2H();
@@ -78,7 +84,7 @@ KernelStats MLAccuracy::run(const AccuracyData &data, const AccuracySettings &se
     //cudaFree(d_label);BUG
     //cudaFree(d_data);BUG
     //cudaFree(d_count);BUG
-    return prof.retreive(settings.repetitions);
+    return prof.retreive();
 };
 
 REGISTER_CLASS(IAccuracy,MLAccuracy);
