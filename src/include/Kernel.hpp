@@ -100,7 +100,7 @@ private:
     virtual void run_cpu() = 0; // PUT THE RESULT OF THE COMPUTATION INSIDE cpu_result !!!
     KernelStats run_impl(std::shared_ptr<IVersion<Data, Settings, Result>> version_impl, Result &result);
     void run_versions(class_umap<IVersion<Data, Settings, Result>> versions);
-    void run_versions_repeat_outside(class_umap<IVersion<Data, Settings, Result>> versions, int subrep, int outerrep);
+    void run_benchmark(class_umap<IVersion<Data, Settings, Result>> versions);
     std::vector<std::string> list_version();
 };
 

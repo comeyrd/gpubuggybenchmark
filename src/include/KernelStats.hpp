@@ -45,6 +45,30 @@ struct KernelStats{
         }
         mean_repetitions = total / nb_r;
     }
+    KernelStats(const KernelStats& other)
+        : memcpy2D(other.memcpy2D),
+          memcpy2H(other.memcpy2H),
+          mean_warmup(other.mean_warmup),
+          mean_repetitions(other.mean_repetitions),
+          nb_w(other.nb_w),
+          nb_r(other.nb_r),
+          settings(other.settings),
+          str_ver_ker(other.str_ver_ker),
+          kernel(other.kernel),
+          version(other.version)
+    {
+        // allocate only as many slots as the original object currently uses
+        warmup_duration     = new float[nb_w];
+        repetitions_duration = new float[nb_r];
+
+        std::copy(other.warmup_duration,
+                  other.warmup_duration + nb_w,
+                  warmup_duration);
+        std::copy(other.repetitions_duration,
+                  other.repetitions_duration + nb_r,
+                  repetitions_duration);
+    }
+    KernelStats& operator=(const KernelStats&) = delete;
 };
     inline std::ostream& operator<<(std::ostream& os, KernelStats &e_stat) {
     if(e_stat.mean_repetitions == 0){
