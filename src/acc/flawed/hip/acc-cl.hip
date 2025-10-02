@@ -4,10 +4,11 @@
 #include <random>
 #include <hip/hip_runtime.h>
 #include <hipcub/hipcub.hpp>
-#include "acc-reference.hpp"
+#include "acc-cl.hpp"
 #include "hip-utils.hpp"
-
-//TODO Move the template inside the accuracy kernel and enum with possible gpu num threads
+//Inefficient Cache access, non linear data access
+//TODO FIX - IS buggy
+#define GPU_NUM_THREADS 256
 
 template <typename T>
 __device__ void BlockReduce(T &input) {
@@ -17,10 +18,10 @@ __device__ void BlockReduce(T &input) {
 }
 
 __global__
-void accuracy_reference_kernel(const int N, const int D, const int top_k, const float* Xdata, const int* labelData, int* accuracy){
+void accuracy_cl_kernel(const int N, const int D, const int top_k, const float* Xdata, const int* labelData, int* accuracy){
   int count = 0;
 
-  for (int row = blockIdx.x; row < N; row += gridDim.x) {
+  for (int row = blockIdx.x*gridDim.x; row < min(blockIdx.x*gridDim.x + gridDim.x,N); row++) {
     const int label = labelData[row];
     const float label_pred = Xdata[row * D + label];
     int ngt = 0;
@@ -41,7 +42,7 @@ void accuracy_reference_kernel(const int N, const int D, const int top_k, const 
   }
 }
 
-KernelStats ReferenceAccuracy::run(const AccuracyData &data, const AccuracySettings &settings, AccuracyResult &result) const{
+KernelStats CLAccuracy::run(const AccuracyData &data, const AccuracySettings &settings, AccuracyResult &result) const{
     HipProfiling prof(settings);
 
     prof.begin_mem2D();
@@ -60,18 +61,19 @@ KernelStats ReferenceAccuracy::run(const AccuracyData &data, const AccuracySetti
 
     dim3 grid (settings.grid_sz);
 
+    
     prof.end_mem2D();
     for(int w = 0; w < settings.warmup ; w++){
-        prof.begin_warmup();
-        CHECK_HIP(hipMemset(d_count, 0, sizeof(int)));
-        accuracy_reference_kernel<<<grid, block>>>(data.n_rows, data.ndims, data.topk, d_data, d_label, d_count);
-        prof.end_warmup();
+      prof.begin_warmup();
+      CHECK_HIP(hipMemset(d_count, 0, sizeof(int)));
+      accuracy_cl_kernel<<<grid, block>>>(data.n_rows, data.ndims, data.topk, d_data, d_label, d_count);
+      prof.end_warmup();
     }
     for(int r = 0 ; r < settings.repetitions ; r++){
-        prof.begin_repetition();
-        CHECK_HIP(hipMemset(d_count, 0, sizeof(int)));
-        accuracy_reference_kernel<<<grid, block>>>(data.n_rows, data.ndims, data.topk, d_data, d_label, d_count);
-        prof.end_repetition();
+      prof.begin_repetition();
+      CHECK_HIP(hipMemset(d_count, 0, sizeof(int)));
+      accuracy_cl_kernel<<<grid, block>>>(data.n_rows, data.ndims, data.topk, d_data, d_label, d_count);
+      prof.end_repetition();
     }
 
     CHECK_HIP(hipDeviceSynchronize());
@@ -85,4 +87,4 @@ KernelStats ReferenceAccuracy::run(const AccuracyData &data, const AccuracySetti
     return prof.retreive();
 };
 
-REGISTER_CLASS(IAccuracy,ReferenceAccuracy);
+//REGISTER_CLASS(IAccuracy,CLAccuracy);

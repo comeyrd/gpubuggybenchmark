@@ -1,10 +1,11 @@
-#include "bilateral-reference.hpp"
+#include "bilateral-re.hpp"
 #include "gpu-utils.hpp"
 #include "hip-utils.hpp"
+// Removing restrict, reducing optimization opportunities
 template<int R>
 __global__ void bilateralFilter(
-    const float *__restrict__ in,
-    float *__restrict__ out,
+    const float * in,//BUG
+    float * out,//BUG
     int w, 
     int h, 
     float a_square,
@@ -56,7 +57,7 @@ __global__ void bilateralFilter(
   }
   out[id] = res/normalization;
 }
-KernelStats ReferenceBilateral::run(const BilateralData &data, const BilateralSettings &settings, BilateralData &result) const {
+KernelStats REBilateral::run(const BilateralData &data, const BilateralSettings &settings, BilateralData &result) const {
 
   float *d_src, *d_dst;
   HipProfiling prof(settings);
@@ -83,4 +84,4 @@ KernelStats ReferenceBilateral::run(const BilateralData &data, const BilateralSe
   prof.end_mem2H();
   return prof.retreive();
 };
-REGISTER_CLASS(IBilateral,ReferenceBilateral);
+REGISTER_CLASS(IBilateral,REBilateral);

@@ -1,6 +1,7 @@
-#include "bilateral-reference.hpp"
+#include "bilateral-dg.hpp"
 #include "gpu-utils.hpp"
 #include "hip-utils.hpp"
+//Too much global memory access
 template<int R>
 __global__ void bilateralFilter(
     const float *__restrict__ in,
@@ -17,7 +18,6 @@ __global__ void bilateralFilter(
   if(idx >= w || idy >= h) return;
 
   int id = idy*w + idx;
-  float I = in[id];
   float res = 0;
   float normalization = 0;
 
@@ -37,10 +37,9 @@ __global__ void bilateralFilter(
       if( idl > h - 1) idl = h - 1 - j;
 
       int id_w = idl*w + idk;
-      float I_w = in[id_w];
 
       // range kernel for smoothing differences in intensities
-      float range = -(I-I_w) * (I-I_w) / (2.f * variance_I);
+      float range = -(in[id]-in[id_w]) * (in[id]-in[id_w]) / (2.f * variance_I);//BUG
 
       // spatial (or domain) kernel for smoothing differences in coordinates
       float spatial = -((idk-idx)*(idk-idx) + (idl-idy)*(idl-idy)) /
@@ -51,12 +50,12 @@ __global__ void bilateralFilter(
       float weight = a_square * expf(spatial + range);
 
       normalization += weight;
-      res += (I_w * weight);
+      res += (in[id_w] * weight);
     }
   }
   out[id] = res/normalization;
 }
-KernelStats ReferenceBilateral::run(const BilateralData &data, const BilateralSettings &settings, BilateralData &result) const {
+KernelStats DGBilateral::run(const BilateralData &data, const BilateralSettings &settings, BilateralData &result) const {
 
   float *d_src, *d_dst;
   HipProfiling prof(settings);
@@ -83,4 +82,4 @@ KernelStats ReferenceBilateral::run(const BilateralData &data, const BilateralSe
   prof.end_mem2H();
   return prof.retreive();
 };
-REGISTER_CLASS(IBilateral,ReferenceBilateral);
+REGISTER_CLASS(IBilateral,DGBilateral);

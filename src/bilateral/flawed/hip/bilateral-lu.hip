@@ -1,6 +1,7 @@
-#include "bilateral-reference.hpp"
+#include "bilateral-lu.hpp"
 #include "gpu-utils.hpp"
 #include "hip-utils.hpp"
+// Missed Unrolling 
 template<int R>
 __global__ void bilateralFilter(
     const float *__restrict__ in,
@@ -22,9 +23,8 @@ __global__ void bilateralFilter(
   float normalization = 0;
 
   // window centered at the coordinate (idx, idy)
-  #pragma unroll
+  //BUG
   for(int i = -R; i <= R; i++) {
-    #pragma unroll
     for(int j = -R; j <= R; j++) {
 
       int idk = idx+i;
@@ -56,7 +56,7 @@ __global__ void bilateralFilter(
   }
   out[id] = res/normalization;
 }
-KernelStats ReferenceBilateral::run(const BilateralData &data, const BilateralSettings &settings, BilateralData &result) const {
+KernelStats LUBilateral::run(const BilateralData &data, const BilateralSettings &settings, BilateralData &result) const {
 
   float *d_src, *d_dst;
   HipProfiling prof(settings);
@@ -83,4 +83,4 @@ KernelStats ReferenceBilateral::run(const BilateralData &data, const BilateralSe
   prof.end_mem2H();
   return prof.retreive();
 };
-REGISTER_CLASS(IBilateral,ReferenceBilateral);
+REGISTER_CLASS(IBilateral,LUBilateral);

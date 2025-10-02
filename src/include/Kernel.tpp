@@ -78,7 +78,7 @@ void IKernel<Data, Settings, Result>::run_versions(
                 std::cout << vResult << " vs " << cpu_result << std::endl;
                 std::cout << std::endl;
             } else {
-                //std::cout << " Version " << name << " " << vStat << std::endl;
+                std::cout << " Version " << name << " " << vStat << std::endl;
             }
             exportCsv(std::vector<KernelStats>{vStat}, "./csv/all.csv");
         } catch (std::exception &e) {

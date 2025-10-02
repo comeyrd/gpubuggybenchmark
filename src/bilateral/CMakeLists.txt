@@ -15,7 +15,7 @@ if(BUILD_WITH_CUDA)
     target_include_directories(bilateral PUBLIC ${BILATERAL_DIR_TO_INCLUDE} ${BILATERAL_DIR}/cuda)
 
 elseif(BUILD_WITH_HIP)
-    file(GLOB FLAWED_HIP "${BILATERAL_DIR}/*.hip" "${BILATERAL_DIR}/flawed/*.hip")
+    file(GLOB FLAWED_HIP "${BILATERAL_DIR}/*.hip" "${BILATERAL_DIR}/flawed/hip/*.hip")
     add_library(bilateral STATIC ${BILATERAL_COMMON_SRC} ${FLAWED_HIP})
     target_link_libraries(bilateral ${BILATERAL_LIB_TO_LINK} hip_common)
     target_include_directories(bilateral PUBLIC ${BILATERAL_DIR_TO_INCLUDE} ${BILATERAL_DIR}/hip)

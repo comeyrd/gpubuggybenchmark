@@ -1,6 +1,7 @@
-#include "bilateral-reference.hpp"
+#include "bilateral-ua.hpp"
 #include "gpu-utils.hpp"
 #include "hip-utils.hpp"
+//Unnecessary Atomic operation
 template<int R>
 __global__ void bilateralFilter(
     const float *__restrict__ in,
@@ -50,13 +51,13 @@ __global__ void bilateralFilter(
       // and the intensity difference (using the range kernel)
       float weight = a_square * expf(spatial + range);
 
-      normalization += weight;
+      atomicAdd(&normalization, weight);
       res += (I_w * weight);
     }
   }
   out[id] = res/normalization;
 }
-KernelStats ReferenceBilateral::run(const BilateralData &data, const BilateralSettings &settings, BilateralData &result) const {
+KernelStats UABilateral::run(const BilateralData &data, const BilateralSettings &settings, BilateralData &result) const {
 
   float *d_src, *d_dst;
   HipProfiling prof(settings);
@@ -83,4 +84,4 @@ KernelStats ReferenceBilateral::run(const BilateralData &data, const BilateralSe
   prof.end_mem2H();
   return prof.retreive();
 };
-REGISTER_CLASS(IBilateral,ReferenceBilateral);
+REGISTER_CLASS(IBilateral,UABilateral);

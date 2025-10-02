@@ -1,6 +1,7 @@
-#include "bilateral-reference.hpp"
+#include "bilateral-cl.hpp"
 #include "gpu-utils.hpp"
 #include "hip-utils.hpp"
+//NON linear data access
 template<int R>
 __global__ void bilateralFilter(
     const float *__restrict__ in,
@@ -36,7 +37,7 @@ __global__ void bilateralFilter(
       if( idk > w - 1) idk = w - 1 - i;
       if( idl > h - 1) idl = h - 1 - j;
 
-      int id_w = idl*w + idk;
+      int id_w = idl*h + idk;//BUG
       float I_w = in[id_w];
 
       // range kernel for smoothing differences in intensities
@@ -56,7 +57,7 @@ __global__ void bilateralFilter(
   }
   out[id] = res/normalization;
 }
-KernelStats ReferenceBilateral::run(const BilateralData &data, const BilateralSettings &settings, BilateralData &result) const {
+KernelStats CLBilateral::run(const BilateralData &data, const BilateralSettings &settings, BilateralData &result) const {
 
   float *d_src, *d_dst;
   HipProfiling prof(settings);
@@ -83,4 +84,4 @@ KernelStats ReferenceBilateral::run(const BilateralData &data, const BilateralSe
   prof.end_mem2H();
   return prof.retreive();
 };
-REGISTER_CLASS(IBilateral,ReferenceBilateral);
+REGISTER_CLASS(IBilateral,CLBilateral);

@@ -16,7 +16,7 @@ if(BUILD_WITH_CUDA)
     target_include_directories(fpc PUBLIC ${FPC_DIR_TO_INCLUDE})
 
 elseif(BUILD_WITH_HIP)
-    file(GLOB FLAWED_CUDA "${FPC_DIR}/*.hip" "${FPC_DIR}/flawed/*.hip")
+    file(GLOB FLAWED_CUDA "${FPC_DIR}/*.hip" "${FPC_DIR}/flawed/hip/*.hip")
     add_library(fpc STATIC ${FPC_COMMON_SRC} ${FLAWED_CUDA} )
     target_link_libraries(fpc ${FPC_LIB_TO_LINK} hip_common)
     target_include_directories(fpc PUBLIC ${FPC_DIR_TO_INCLUDE})

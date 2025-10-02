@@ -1,6 +1,7 @@
-#include "bilateral-reference.hpp"
+#include "bilateral-ab.hpp"
 #include "gpu-utils.hpp"
 #include "hip-utils.hpp"
+//Artificial barrier, useless barrier
 template<int R>
 __global__ void bilateralFilter(
     const float *__restrict__ in,
@@ -45,7 +46,7 @@ __global__ void bilateralFilter(
       // spatial (or domain) kernel for smoothing differences in coordinates
       float spatial = -((idk-idx)*(idk-idx) + (idl-idy)*(idl-idy)) /
                       (2.f * variance_spatial);
-
+      __syncthreads();
       // the weight is assigned using the spatial closeness (using the spatial kernel) 
       // and the intensity difference (using the range kernel)
       float weight = a_square * expf(spatial + range);
@@ -56,7 +57,7 @@ __global__ void bilateralFilter(
   }
   out[id] = res/normalization;
 }
-KernelStats ReferenceBilateral::run(const BilateralData &data, const BilateralSettings &settings, BilateralData &result) const {
+KernelStats ABBilateral::run(const BilateralData &data, const BilateralSettings &settings, BilateralData &result) const {
 
   float *d_src, *d_dst;
   HipProfiling prof(settings);
@@ -83,4 +84,4 @@ KernelStats ReferenceBilateral::run(const BilateralData &data, const BilateralSe
   prof.end_mem2H();
   return prof.retreive();
 };
-REGISTER_CLASS(IBilateral,ReferenceBilateral);
+REGISTER_CLASS(IBilateral,ABBilateral);
