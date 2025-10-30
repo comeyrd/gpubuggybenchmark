@@ -1,6 +1,8 @@
 #include "bilateral-reference.hpp"
-#include "gpu-utils.hpp"
 #include "cuda-utils.hpp"
+#include "gpu-utils.hpp"
+
+
 template<int R>
 __global__ void bilateralFilter(
     const float *__restrict__ in,
@@ -56,31 +58,27 @@ __global__ void bilateralFilter(
   }
   out[id] = res/normalization;
 }
-KernelStats ReferenceBilateral::run(const BilateralData &data, const BilateralSettings &settings, BilateralData &result) const {
 
-  float *d_src, *d_dst;
-  CudaProfiling prof(settings);
-  prof.begin_mem2D();
-  CHECK_CUDA(cudaMalloc((void**)&d_dst, data.size * sizeof(float)));
-  CHECK_CUDA(cudaMalloc((void**)&d_src, data.size * sizeof(float)));
+void ReferenceBilateral::setup() {
+}
 
-  CHECK_CUDA(cudaMemcpy(d_src, data.image, data.size * sizeof(float), cudaMemcpyHostToDevice)); 
-  prof.end_mem2D();
-  dim3 threads (16, 16);
-  dim3 blocks ((data.width+15)/16, (data.height+15)/16);
-  for(int w = 0; w < settings.warmup ; w++){
-    prof.begin_warmup();
-    bilateralFilter<4><<<blocks, threads>>>(d_src, d_dst, data.width, data.height, settings.a_square, settings.variance_I, settings.variance_spatial);
-    prof.end_warmup();
-  }
-  for(int r = 0 ; r < settings.repetitions ; r++){
-    prof.begin_repetition();
-    bilateralFilter<4><<<blocks, threads>>>(d_src, d_dst, data.width, data.height, settings.a_square, settings.variance_I, settings.variance_spatial);
-    prof.end_repetition();
-  }
-  prof.begin_mem2H();
-  CHECK_CUDA(cudaMemcpy(result.image, d_dst, data.size * sizeof(float), cudaMemcpyDeviceToHost)); 
-  prof.end_mem2H();
-  return prof.retreive();
+void ReferenceBilateral::run(stream_t* s) {
+    CHECK_CUDA(cudaMalloc((void **)&d_dst, data->size * sizeof(float)));
+    CHECK_CUDA(cudaMalloc((void **)&d_src, data->size * sizeof(float)));
+    CHECK_CUDA(cudaMemcpy(d_src, data->image, data->size * sizeof(float), cudaMemcpyHostToDevice));
+    threads = dim3(16, 16);
+    blocks = dim3((data->width + 15) / 16, (data->height + 15) / 16);
+    CHECK_CUDA(cudaGetLastError());
+    CHECK_CUDA(cudaDeviceSynchronize());
+    bilateralFilter<4><<<blocks, threads, 0, s->native>>>(d_src, d_dst, data->width, data->height, settings->a_square, settings->variance_I, settings->variance_spatial);
+    CHECK_CUDA(cudaDeviceSynchronize());
+    CHECK_CUDA(cudaGetLastError());
+    cudaFree(d_dst);
+    cudaFree(d_src);
 };
-REGISTER_CLASS(IBilateral,ReferenceBilateral);
+
+void ReferenceBilateral::teardown() {
+
+};
+
+REGISTER_CLASS(IBilateral, ReferenceBilateral);

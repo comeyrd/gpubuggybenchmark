@@ -13,7 +13,7 @@ void IKernel<Data, Settings, Result>::run(int argc, char **argv) {
     group.add_argument("-a", "--all").flag();
     group.add_argument("-cv", "--choose-version").nargs(argparse::nargs_pattern::at_least_one);
     group.add_argument("-lv", "--list-versions").flag();
-    group.add_argument("-b", "--benchmark").flag();
+    kernel_parser.add_argument("-b", "--benchmark").flag();
     kernel_parser.add_argument("--repetitions", "-r").default_value(400).scan<'i', int>().help("Number of repetitions of execution of each Version");
     kernel_parser.add_argument("--warmup", "-w").default_value(5).scan<'i', int>().help("How many executions must be used as warm up");
 
@@ -34,37 +34,63 @@ void IKernel<Data, Settings, Result>::run(int argc, char **argv) {
     settings.warmup = kernel_parser.get<int>("--warmup");
     bool versions_set = kernel_parser.is_used("-cv");
 
+    class_umap<IVersion<Data,Settings,Result>> version_map;
     if (list_set) {
         std::cout << "Versions available :" << std::endl;
         for (const auto &version : list_version()) {
             std::cout << version << std::endl;
         }
     } else if (all_set) {
-        class_umap<IVersion<Data, Settings, Result>> versions_map = Manager<IVersion<Data, Settings, Result>>::instance()->getClasses();
-        run_versions(versions_map);
+        version_map = Manager<IVersion<Data, Settings, Result>>::instance()->getClasses();
     } else if (versions_set) {
         std::vector<std::string> versions = kernel_parser.get<std::vector<std::string>>("-cv");
-        class_umap<IVersion<Data, Settings, Result>> versions_map = select_versions_in_umap(versions, Manager<IVersion<Data, Settings, Result>>::instance()->getClasses());
-        run_versions(versions_map);
-    } else if(benchmark){
-        class_umap<IVersion<Data, Settings, Result>> versions_map = Manager<IVersion<Data, Settings, Result>>::instance()->getClasses();
-        run_benchmark(versions_map);
-    }else {
+        version_map = select_versions_in_umap(versions, Manager<IVersion<Data, Settings, Result>>::instance()->getClasses());
+    }else{
         std::cout << kernel_parser << std::endl;
         return;
     }
+    setup_gpu();
+    if(benchmark){
+        run_benchmark(version_map);
+    }else{
+        run_versions(version_map);
+    }
+
     return;
 }
 
 template <typename Data, typename Settings, typename Result>
 KernelStats IKernel<Data, Settings, Result>::run_impl(
     std::shared_ptr<IVersion<Data, Settings, Result>> version_impl, Result &result) {
-    return version_impl->run(data, settings, result);
+    GpuStream stream;
+    GpuEventTimer timer(settings,stream.get_stream());
+    version_impl->init(data,settings,result);
+    timer.begin_mem2D();
+    version_impl->setup();
+    timer.end_mem2D();
+
+    for(int w = 0; w < settings.warmup ; w++){
+        timer.begin_warmup();
+        version_impl->run(stream.get_stream());
+        timer.end_warmup();
+    }
+
+    for(int r = 0; r < settings.repetitions ; r++){
+        timer.begin_repetition();
+        version_impl->run(stream.get_stream());
+        timer.end_repetition();
+    }
+    timer.begin_mem2H();
+    timer.end_mem2H();
+    version_impl->teardown();
+
+    return timer.retreive();
 }
 
 template <typename Data, typename Settings, typename Result>
 void IKernel<Data, Settings, Result>::run_versions(
     class_umap<IVersion<Data, Settings, Result>> versions) {
+    data.generate_random();
     run_cpu();
     Result vResult = Result(settings);
 
@@ -78,7 +104,7 @@ void IKernel<Data, Settings, Result>::run_versions(
                 std::cout << vResult << " vs " << cpu_result << std::endl;
                 std::cout << std::endl;
             } else {
-                std::cout << " Version " << name << " " << vStat << std::endl;
+                //std::cout << " Version " << name << " " << vStat << std::endl;
             }
             exportCsv(std::vector<KernelStats>{vStat}, "./csv/all.csv");
         } catch (std::exception &e) {
@@ -102,9 +128,9 @@ std::vector<std::string> IKernel<Data, Settings, Result>::list_version() {
 
 template <typename Data, typename Settings, typename Result>
 void IKernel<Data, Settings, Result>::run_benchmark(class_umap<IVersion<Data, Settings, Result>> versions) {
-    std::vector<int> warmups = {0,1,2,3,4,5,6,7,8,9,10};
-    std::vector<int> repetitions = {10,50,125,250,500,1000};
-    int reruns = 10;
+    std::vector<int> warmups = {};
+    std::vector<int> repetitions = {10,50,125,250,375,500,750,1000,1500};
+    int reruns = 1;
     int total = reruns * (warmups.size() + repetitions.size());
     int done = 0;
     for(int _ = 0; _ < reruns ; _++){
@@ -115,14 +141,15 @@ void IKernel<Data, Settings, Result>::run_benchmark(class_umap<IVersion<Data, Se
             ++done;
             std::cout << "\rProgress : " << done << " / " << total << std::flush;
         }
+        std::cout << std::endl;
         for(int r : repetitions){
             settings.warmup = DEF_WARMUP;
             settings.repetitions = r;
             run_versions(versions);
             ++done;
             std::cout << "\rProgress : " << done << " / " << total << std::flush;
-
         }
+        std::cout << std::endl;
     }
     
 }

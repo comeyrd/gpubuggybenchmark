@@ -12,7 +12,8 @@ if(CMAKE_CUDA_COMPILER)
     set(BUILD_WITH_HIP FALSE)
     enable_language(CUDA)
     ##TODO setup Debug & Release
-    set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --generate-line-info")
+    #set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --generate-line-info")
+    set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --keep --keep-dir ${CMAKE_BINARY_DIR}/ptx")
     add_subdirectory(cuda_common)
 else()
     check_language(HIP)
@@ -51,8 +52,8 @@ else()
         endif()
     endif()
 endif()
-add_subdirectory(fpc)
-add_subdirectory(acc)
+#add_subdirectory(fpc)
+#add_subdirectory(acc)
 add_subdirectory(bilateral)
 add_executable(gpubuggy main.cpp)
 
@@ -64,7 +65,8 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(argparse)
 
-set(KERNELS_TO_LINK accuracy bilateral fpc)
+set(KERNELS_TO_LINK bilateral)
+#set(KERNELS_TO_LINK accuracy bilateral fpc)
 
 find_package(OpenMP REQUIRED)
 

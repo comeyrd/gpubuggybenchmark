@@ -1,6 +1,39 @@
 #include "cuda-utils.hpp"
-#include "gpu-utils.hpp"
+#include "cuda_profiling.hpp"
+#include <cuda/std/chrono>
 
+event_t **allocate_event_array(int count) {
+    event_t **events = new event_t *[count];
+    for (int i = 0; i < count; i++) {
+        events[i] = new event_t;
+        CHECK_CUDA(cudaEventCreate(&events[i]->native));
+    }
+    return events;
+}
+
+void free_event_array(event_t **events, int count) {
+    for (int i = 0; i < count; i++) {
+        CHECK_CUDA(cudaEventDestroy(events[i]->native));
+        delete events[i];
+    }
+    delete[] events;
+}
+
+GpuStream::GpuStream() {
+    stream = new stream_t;
+    CHECK_CUDA(cudaStreamCreate(&stream->native));
+}
+GpuStream::~GpuStream() {
+    CHECK_CUDA(cudaStreamDestroy(stream->native));
+    delete stream;
+}
+
+void gpuStreamCreate(stream_t *stream) {
+    CHECK_CUDA(cudaStreamCreate(&stream->native));
+}
+void gpuStreamDestroy(stream_t *stream) {
+    CHECK_CUDA(cudaStreamDestroy(stream->native));
+}
 void setup_gpu() {
     CHECK_CUDA(cudaSetDevice(0));
 }
@@ -17,106 +50,101 @@ void check_cuda_error(cudaError_t error_code, const char *file, int line) {
     }
 }
 
-CudaProfiling::CudaProfiling(BaseSettings settings_) : settings(settings_) {
-    CHECK_CUDA(cudaEventCreate(&memstart2D));
-    CHECK_CUDA(cudaEventCreate(&memstop2D));
-    CHECK_CUDA(cudaEventCreate(&memstart2H));
-    CHECK_CUDA(cudaEventCreate(&memstop2H));
-    warmupstart = new cudaEvent_t[settings.warmup];
-    warmupstop = new cudaEvent_t[settings.warmup];
-    repetitionstart = new cudaEvent_t[settings.repetitions];
-    repetitionstop = new cudaEvent_t[settings.repetitions];
-    for (int w = 0; w < settings.warmup; w++) {
-        CHECK_CUDA(cudaEventCreate(&warmupstart[w]));
-        CHECK_CUDA(cudaEventCreate(&warmupstop[w]));
-    }
-    for (int r = 0; r < settings.repetitions; r++) {
-        CHECK_CUDA(cudaEventCreate(&repetitionstart[r]));
-        CHECK_CUDA(cudaEventCreate(&repetitionstop[r]));
-    }
+GpuEventTimer::GpuEventTimer(BaseSettings &settings_, stream_t *gpustream) : settings(&settings_), stream(gpustream) {
+    memstart2D = new event_t;
+    memstop2D = new event_t;
+    memstart2H = new event_t;
+    memstop2H = new event_t;
+    CHECK_CUDA(cudaEventCreate(&memstart2D->native));
+    CHECK_CUDA(cudaEventCreate(&memstop2D->native));
+    CHECK_CUDA(cudaEventCreate(&memstart2H->native));
+    CHECK_CUDA(cudaEventCreate(&memstop2H->native));
+    warmupstart = allocate_event_array(settings->warmup);
+    warmupstop = allocate_event_array(settings->warmup);
+    repetitionstart = allocate_event_array(settings->repetitions);
+    repetitionstop = allocate_event_array(settings->repetitions);
 };
 
-CudaProfiling::~CudaProfiling() {
-    if (!destroy) {
-        try {
-            CHECK_CUDA(cudaEventDestroy(memstart2D));
-            CHECK_CUDA(cudaEventDestroy(memstop2D));
-            CHECK_CUDA(cudaEventDestroy(memstart2H));
-            CHECK_CUDA(cudaEventDestroy(memstop2H));
-            for (int w = 0; w < settings.warmup; w++) {
-                CHECK_CUDA(cudaEventDestroy(warmupstart[w]));
-                CHECK_CUDA(cudaEventDestroy(warmupstop[w]));
-            }
-            for (int r = 0; r < settings.repetitions; r++) {
-                CHECK_CUDA(cudaEventDestroy(repetitionstart[r]));
-                CHECK_CUDA(cudaEventDestroy(repetitionstop[r]));
-            }
-        } catch (std::exception &e) {
-            // std::cerr << "Error destroying Cuda profiler" << e.what()<<std::endl;
-        }
+GpuEventTimer::~GpuEventTimer() {
+    try {
+        CHECK_CUDA(cudaEventDestroy(memstart2D->native));
+        CHECK_CUDA(cudaEventDestroy(memstop2D->native));
+        CHECK_CUDA(cudaEventDestroy(memstart2H->native));
+        CHECK_CUDA(cudaEventDestroy(memstop2H->native));
+        free_event_array(warmupstart, settings->warmup);
+        free_event_array(warmupstop, settings->warmup);
+        free_event_array(repetitionstart, settings->repetitions);
+        free_event_array(repetitionstop, settings->repetitions);
+    } catch (std::exception &e) {
+        std::cerr << "Error destroying Cuda profiler" << e.what() << std::endl;
     }
 };
 
-void CudaProfiling::begin_mem2D() {
-    CHECK_CUDA(cudaEventRecord(memstart2D));
+void GpuEventTimer::begin_mem2D() {
+    CHECK_CUDA(cudaEventRecord(memstart2D->native, stream->native));
 };
 
-void CudaProfiling::end_mem2D() {
-    CHECK_CUDA(cudaEventRecord(memstop2D));
+void GpuEventTimer::end_mem2D() {
+    CHECK_CUDA(cudaEventRecord(memstop2D->native, stream->native));
 };
 
-void CudaProfiling::begin_mem2H() {
-    CHECK_CUDA(cudaEventRecord(memstart2H));
+void GpuEventTimer::begin_mem2H() {
+    CHECK_CUDA(cudaEventRecord(memstart2H->native, stream->native));
 };
 
-void CudaProfiling::end_mem2H() {
-    CHECK_CUDA(cudaEventRecord(memstop2H));
+void GpuEventTimer::end_mem2H() {
+    CHECK_CUDA(cudaEventRecord(memstop2H->native, stream->native));
 };
 
-void CudaProfiling::begin_warmup() {
-    CHECK_CUDA(cudaEventRecord(warmupstart[nb_w]));
+void GpuEventTimer::begin_warmup() {
+    CHECK_CUDA(cudaEventRecord(warmupstart[nb_w]->native, stream->native));
 };
-void CudaProfiling::end_warmup() {
-    CHECK_CUDA(cudaEventRecord(warmupstop[nb_w]));
+void GpuEventTimer::end_warmup() {
+    CHECK_CUDA(cudaEventRecord(warmupstop[nb_w]->native, stream->native));
     nb_w++;
 };
-void CudaProfiling::begin_repetition() {
-    CHECK_CUDA(cudaEventRecord(repetitionstart[nb_r]));
+void GpuEventTimer::begin_repetition() {
+    CHECK_CUDA(cudaEventRecord(repetitionstart[nb_r]->native, stream->native));
 };
-void CudaProfiling::end_repetition() {
-    CHECK_CUDA(cudaEventRecord(repetitionstop[nb_r]));
+void GpuEventTimer::end_repetition() {
+    CHECK_CUDA(cudaEventRecord(repetitionstop[nb_r]->native, stream->native));
     nb_r++;
 };
 
-KernelStats CudaProfiling::retreive() {
-    CHECK_CUDA(cudaEventSynchronize(memstop2D));
-    CHECK_CUDA(cudaEventSynchronize(memstop2H));
-
-    KernelStats stats(settings);
-    CHECK_CUDA(cudaEventElapsedTime(&stats.memcpy2D, memstart2D, memstop2D));
-    CHECK_CUDA(cudaEventElapsedTime(&stats.memcpy2H, memstart2H, memstop2H));
+KernelStats GpuEventTimer::retreive() {
+    CHECK_CUDA(cudaEventSynchronize(memstop2D->native));
+    CHECK_CUDA(cudaEventSynchronize(memstart2D->native));
+    CHECK_CUDA(cudaEventSynchronize(memstart2H->native));
+    CHECK_CUDA(cudaEventSynchronize(memstop2H->native));
+    KernelStats stats(*settings);
+    CHECK_CUDA(cudaEventElapsedTime(&stats.memcpy2D, memstart2D->native, memstop2D->native));
+    CHECK_CUDA(cudaEventElapsedTime(&stats.memcpy2H, memstart2H->native, memstop2H->native));
     for (int w = 0; w < nb_w; w++) {
-        CHECK_CUDA(cudaEventElapsedTime(&stats.warmup_duration[w], warmupstart[w], warmupstop[w]));
+        CHECK_CUDA(cudaEventElapsedTime(&stats.warmup_duration[w], warmupstart[w]->native, warmupstop[w]->native));
     }
     for (int r = 0; r < nb_r; r++) {
-        CHECK_CUDA(cudaEventElapsedTime(&stats.repetitions_duration[r], repetitionstart[r], repetitionstop[r]));
+        CHECK_CUDA(cudaEventElapsedTime(&stats.repetitions_duration[r], repetitionstart[r]->native, repetitionstop[r]->native));
     }
     stats.nb_r = nb_r;
     stats.nb_w = nb_w;
-    if (!destroy) {
-        CHECK_CUDA(cudaEventDestroy(memstart2D));
-        CHECK_CUDA(cudaEventDestroy(memstop2D));
-        CHECK_CUDA(cudaEventDestroy(memstart2H));
-        CHECK_CUDA(cudaEventDestroy(memstop2H));
-        for (int w = 0; w < settings.warmup; w++) {
-            CHECK_CUDA(cudaEventDestroy(warmupstart[w]));
-            CHECK_CUDA(cudaEventDestroy(warmupstop[w]));
-        }
-        for (int r = 0; r < settings.repetitions; r++) {
-            CHECK_CUDA(cudaEventDestroy(repetitionstart[r]));
-            CHECK_CUDA(cudaEventDestroy(repetitionstop[r]));
-        }
-        destroy = true;
-    }
     return stats;
+}
+
+l2flushr::l2flushr() : cs() {
+    int dev_id{};
+    CHECK_CUDA(cudaGetDevice(&dev_id));
+    CHECK_CUDA(cudaDeviceGetAttribute(&buffer_size, cudaDevAttrL2CacheSize, dev_id));
+    if (buffer_size > 0) {
+        void *buffer = l2_buffer;
+        CHECK_CUDA(cudaMalloc(&buffer, static_cast<std::size_t>(buffer_size)));
+        l2_buffer = reinterpret_cast<int *>(buffer);
+    }
+}
+l2flushr::~l2flushr() {
+    if (l2_buffer) {
+        CHECK_CUDA(cudaFree(l2_buffer));
+    }
+}
+void l2flushr::flush(stream_t *stream) {
+    CHECK_CUDA(cudaMemsetAsync(l2_buffer, 0, static_cast<std::size_t>(buffer_size), stream->native));
 }

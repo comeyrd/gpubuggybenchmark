@@ -4,7 +4,7 @@
 #include <iostream>
 #include <fstream>
 #include <string>      // std::string
-#include "Kernel.hpp"
+#include "Types.hpp"
 
 struct KernelStats{
     float memcpy2D = 0;//Mem init + copy 2device
@@ -15,13 +15,13 @@ struct KernelStats{
     float mean_repetitions;
     int nb_w;
     int nb_r;
-    BaseSettings settings;
+    BaseSettings* settings;
     bool str_ver_ker = false;//if the kernel and version have been allocated and filled
     std::string kernel;
     std::string version;
-    explicit KernelStats(BaseSettings settings_):settings(settings_){
-        warmup_duration = new float[settings.warmup];
-        repetitions_duration = new float[settings.repetitions];
+    explicit KernelStats(BaseSettings &settings_):settings(&settings_){
+        warmup_duration = new float[settings->warmup];
+        repetitions_duration = new float[settings->repetitions];
     }
     ~KernelStats(){
         delete warmup_duration;
@@ -100,7 +100,7 @@ struct CSVExportable<KernelStats> {
         }
         oss << ks.repetitions_duration[ks.nb_r-1] << ",";
         
-        oss << ks.settings.warmup << "," << ks.settings.repetitions;
+        oss << ks.settings->warmup << "," << ks.settings->repetitions;
 
         if (ks.str_ver_ker){
             oss << "," << ks.kernel << "," << ks.version;    

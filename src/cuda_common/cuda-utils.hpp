@@ -1,40 +1,36 @@
-#ifndef CUDA_UTILS_HPP  
-#define  CUDA_UTILS_HPP
-#include "Kernel.hpp"
+/*
+ *  Copyright 2021 NVIDIA Corporation
+ *
+ *  Licensed under the Apache License, Version 2.0 with the LLVM exception
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.
+ *
+ *  You may obtain a copy of the License at
+ *
+ *      http://llvm.org/foundation/relicensing/LICENSE.txt
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ *
+ *  SOME PARTS OF THIS CODE ARE FROM NVBENCH
+ */
 
+#ifndef CUDA_UTILS_HPP
+#define CUDA_UTILS_HPP
+#include "Kernel.hpp"
+#include "gpu-utils.hpp"
 #define CHECK_CUDA(error) check_cuda_error(error, __FILE__, __LINE__)
 
-void check_cuda_error(cudaError_t error_code,const char* file, int line);
+void check_cuda_error(cudaError_t error_code, const char *file, int line);
 
-class CudaProfiling{
-    private:
-    cudaEvent_t memstart2D;
-    cudaEvent_t memstop2D;
-    cudaEvent_t memstart2H;
-    cudaEvent_t memstop2H;
-    cudaEvent_t* warmupstart;
-    cudaEvent_t* warmupstop;
-    cudaEvent_t* repetitionstart;
-    cudaEvent_t* repetitionstop;
-    BaseSettings settings;
-    bool destroy = false;
-    int nb_w = 0;//what warmup iteration are we on
-    int nb_r = 0;//what repetition iteration are we on
-    public:
-    CudaProfiling(BaseSettings settings_);
-    ~CudaProfiling();
-    void begin_mem2D();
-    void end_mem2D();
-    void begin_mem2H();
-    void end_mem2H();
-    void begin_warmup();
-    void end_warmup();
-    void begin_repetition();
-    void end_repetition();
-    KernelStats retreive(); 
+struct stream_t{
+    cudaStream_t native;
+};
+struct event_t{
+    cudaEvent_t native;
 };
 
-//TODO Update the tools to use "nsys" and "ncu" and other.
-
 #endif
-

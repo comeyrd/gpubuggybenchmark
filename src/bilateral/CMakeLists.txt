@@ -2,13 +2,15 @@ set(BILATERAL_DIR ${CMAKE_SOURCE_DIR}/bilateral)
 
 set(BILATERAL_COMMON_SRC
     ${BILATERAL_DIR}/bilateral.cpp
+    ${BILATERAL_DIR}/bilateral-reference.cu
+
 )
 
 set(BILATERAL_LIB_TO_LINK argparse)
 set(BILATERAL_DIR_TO_INCLUDE ${BILATERAL_DIR} ${BILATERAL_DIR}/flawed/include ${CMAKE_SOURCE_DIR}/include)
 
 if(BUILD_WITH_CUDA)
-    file(GLOB FLAWED_CUDA "${BILATERAL_DIR}/*.cu" "${BILATERAL_DIR}/flawed/*.cu" "${BILATERAL_DIR}/cuda/*.cu" )
+    #file(GLOB FLAWED_CUDA "${BILATERAL_DIR}/*.cu" "${BILATERAL_DIR}/flawed/*.cu" "${BILATERAL_DIR}/cuda/*.cu" )
     add_library(bilateral STATIC ${BILATERAL_COMMON_SRC} ${FLAWED_CUDA})    
     set_target_properties(bilateral PROPERTIES CUDA_ARCHITECTURES 70)
     target_link_libraries(bilateral ${BILATERAL_LIB_TO_LINK} cuda_common)

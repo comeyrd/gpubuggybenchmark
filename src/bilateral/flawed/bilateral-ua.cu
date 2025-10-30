@@ -51,7 +51,7 @@ __global__ void bilateralFilter(
       // and the intensity difference (using the range kernel)
       float weight = a_square * expf(spatial + range);
 
-      atomicAdd(&normalization, weight);
+      atomicAdd(&normalization, weight);//BUG
       res += (I_w * weight);
     }
   }

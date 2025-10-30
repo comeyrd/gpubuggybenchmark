@@ -15,8 +15,8 @@ constexpr float VARIANCE_I = 10.0f;
 constexpr float VARIANCE_SPATIALE = 12.0f;
 constexpr float A_SQUARE = 0.5f / (VARIANCE_I * (float)M_PI);
 
-constexpr int WIDTH = 4000;
-constexpr int HEIGHT = 4000;
+constexpr int WIDTH = 500;
+constexpr int HEIGHT = 500;
 
 constexpr float ROUNDING_ERROR = 1e-3;
 

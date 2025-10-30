@@ -7,31 +7,8 @@
 #include <type_traits>
 #include <utility>
 #include <vector>
-
-struct BaseSettings {
-    int repetitions;
-    int warmup;
-    BaseSettings(int _repetitions, int _warmup) : repetitions(_repetitions), warmup(_warmup) {};
-};
+#include "Types.hpp"
 #include "KernelStats.hpp"
-
-struct BaseData {
-    virtual void generate_random() = 0;
-    BaseData(const BaseData &) = delete;
-    BaseData &operator=(const BaseData &) = delete;
-    BaseData(BaseData &&) noexcept = default;
-    BaseData &operator=(BaseData &&) noexcept = default;
-
-protected:
-    explicit BaseData(const BaseSettings &settings) {}
-};
-
-struct BaseResult {
-    virtual ~BaseResult() = default;
-
-protected:
-    explicit BaseResult(const BaseSettings &settings) {};
-};
 
 // Settings must derive from BaseSettings
 template <typename T>
@@ -57,8 +34,20 @@ struct is_instantiable_by
 template <typename Data, typename Settings, typename Result>
 class IVersion {
 public:
+    void init(const Data &_data, const Settings &_settings, Result &_result) {
+        data = &_data;
+        settings = &_settings;
+        result = &_result;
+    }    
     virtual ~IVersion() = default;
-    virtual KernelStats run(const Data &data, const Settings &settings, Result &result) const = 0;
+    virtual void setup() = 0;
+    virtual void reset() = 0;
+    virtual void run(stream_t* s) = 0;
+    virtual void teardown() = 0;
+protected:
+    const Data *data;
+    const Settings *settings;
+    Result *result;
 };
 
 class I_IKernel {
