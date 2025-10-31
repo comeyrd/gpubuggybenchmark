@@ -19,7 +19,7 @@ void MeasureCpuTime(const std::string& name, Func func) {
 }
 
 struct KernelStats{
-    int m_warmup;
+    int m_warmups;
     int m_repetitions;
     float memcpy2D = 0;//Mem init + copy 2device
     float memcpy2H = 0;//copy back 2 host
@@ -33,8 +33,8 @@ struct KernelStats{
     std::string kernel;
     std::string version;
 
-    explicit KernelStats(const int& warmup, const int& repetitions):m_warmup(warmup), m_repetitions(repetitions){
-        warmup_duration = new float[m_warmup];
+    explicit KernelStats(const int& warmup, const int& repetitions):m_warmups(warmup), m_repetitions(repetitions){
+        warmup_duration = new float[m_warmups];
         repetitions_duration = new float[m_repetitions];
     }
     ~KernelStats(){
@@ -60,7 +60,9 @@ struct KernelStats{
         mean_repetitions = total / nb_r;
     }
     KernelStats(const KernelStats& other)
-        : memcpy2D(other.memcpy2D),
+        : m_warmups(other.m_warmups),
+          m_repetitions(other.m_repetitions),
+          memcpy2D(other.memcpy2D),
           memcpy2H(other.memcpy2H),
           mean_warmup(other.mean_warmup),
           mean_repetitions(other.mean_repetitions),
@@ -113,7 +115,7 @@ struct CSVExportable<KernelStats> {
         }
         oss << ks.repetitions_duration[ks.nb_r-1] << ",";
         
-        oss << ks.m_warmup << "," << ks.m_repetitions;
+        oss << ks.m_warmups << "," << ks.m_repetitions;
 
         if (ks.str_ver_ker){
             oss << "," << ks.kernel << "," << ks.version;    

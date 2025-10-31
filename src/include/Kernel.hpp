@@ -70,12 +70,13 @@ protected:
     int m_work_size;
     Data m_data;
     Result m_cpu_result;
+    //TODO Maybe pack into a "config"? So the kernel stats can have the config ?
     int m_repetitions;
-    int m_warmup;
+    int m_warmups;
     bool m_flush_l2 = true;//TODO add logic
     bool m_block_kernel = true;
 public:
-    IKernel() : m_work_size(DEF_WORK_SIZE), m_data(m_work_size), m_cpu_result(m_work_size),m_repetitions(DEF_REPETITIONS),m_warmup(DEF_WARMUP) {};
+    IKernel() : m_work_size(DEF_WORK_SIZE), m_data(m_work_size), m_cpu_result(m_work_size),m_repetitions(DEF_REPETITIONS),m_warmups(DEF_WARMUP) {};
     void run(int argc, char **argv) override;
 
 private:

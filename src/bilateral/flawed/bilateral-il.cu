@@ -67,7 +67,6 @@ void ILBilateral::setup() {
 
 void ILBilateral::run(stream_t* s) {
     bilateralFilter<4><<<blocks, threads, 0, s->native>>>(d_src, d_dst, m_data->width, m_data->height, m_data->a_square, m_data->variance_I, m_data->variance_spatial);
-    CHECK_CUDA(cudaDeviceSynchronize());//BUG
 };
 
 void ILBilateral::teardown(BilateralData &_result) {

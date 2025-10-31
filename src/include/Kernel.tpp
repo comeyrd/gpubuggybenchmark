@@ -32,13 +32,13 @@ void IKernel<Data, Result>::run(int argc, char **argv) {
     bool list_set = kernel_parser.get<bool>("--list-versions");
     bool benchmark = kernel_parser.get<bool>("-b");
     m_repetitions = kernel_parser.get<int>("--repetitions");
-    m_warmup = kernel_parser.get<int>("--warmup");
+    m_warmups = kernel_parser.get<int>("--warmup");
     m_work_size = kernel_parser.get<int>("--work_size");
     bool versions_set = kernel_parser.is_used("-cv");
-    if( m_work_size != 1 && m_work_size % 2 !=0 ){
+    if (m_work_size != 1 && m_work_size % 2 != 0) {
         std::cout << "Work size should be a multiple of 2" << std::endl;
     }
-    class_umap<IVersion<Data,Result>> version_map;
+    class_umap<IVersion<Data, Result>> version_map;
     if (list_set) {
         std::cout << "Versions available :" << std::endl;
         for (const auto &version : list_version()) {
@@ -49,14 +49,14 @@ void IKernel<Data, Result>::run(int argc, char **argv) {
     } else if (versions_set) {
         std::vector<std::string> versions = kernel_parser.get<std::vector<std::string>>("-cv");
         version_map = select_versions_in_umap(versions, Manager<IVersion<Data, Result>>::instance()->getClasses());
-    }else{
+    } else {
         std::cout << kernel_parser << std::endl;
         return;
     }
     setup_gpu();
-    if(benchmark){
+    if (benchmark) {
         run_benchmark(version_map);
-    }else{
+    } else {
         run_versions(version_map);
     }
 
@@ -67,7 +67,7 @@ template <typename Data, typename Result>
 KernelStats IKernel<Data, Result>::run_impl(
     std::shared_ptr<IVersion<Data, Result>> version_impl, Result &result) {
     GpuStream stream;
-    GpuEventTimer timer(m_warmup,m_repetitions,stream.get_stream());
+    GpuEventTimer timer(m_warmups, m_repetitions, stream.get_stream());
     l2flushr flusher;
     blocking_kernel blocker;
     version_impl->init(m_data);
@@ -75,19 +75,25 @@ KernelStats IKernel<Data, Result>::run_impl(
     version_impl->setup();
     timer.end_mem2D();
 
-    for(int w = 0; w < m_warmup ; w++){
+    for (int w = 0; w < m_warmups; w++) {
         timer.begin_warmup();
         version_impl->run(stream.get_stream());
         timer.end_warmup();
     }
-    for (int r = 0; r < m_repetitions;r++ ){
+    for (int r = 0; r < m_repetitions; r++) {
+        if (m_flush_l2) {
+            flusher.flush(stream.get_stream());
+        }
         stream.synchronize();
-        blocker.block(stream.get_stream(),10);
-        flusher.flush(stream.get_stream());
+        if (m_block_kernel) {
+            blocker.block(stream.get_stream(), 10);
+        }
         timer.begin_repetition();
         version_impl->run(stream.get_stream());
         timer.end_repetition();
-        blocker.unblock();
+        if (m_block_kernel) {
+            blocker.unblock();
+        }
     }
     timer.begin_mem2H();
     timer.end_mem2H();
@@ -102,11 +108,12 @@ void IKernel<Data, Result>::run_versions(
     m_data.resize(m_work_size);
     m_data.generate_random();
     m_cpu_result.resize(m_work_size);
-    MeasureCpuTime("Cpu Implementation of " + name(),[this]() { run_cpu(); });//Ugly fix but works for now
+    MeasureCpuTime("Cpu Implementation of " + name(), [this]() { run_cpu(); }); // Ugly fix but works for now
     Result vResult = Result(m_work_size);
 
     for (const auto &[name, version_impl] : versions) {
         try {
+            //std::cout << "Version " << name << std::flush;
             KernelStats vStat = run_impl(version_impl, vResult);
             reset_gpu();
             vStat.set_kernel_version(this->name(), name);
@@ -115,7 +122,7 @@ void IKernel<Data, Result>::run_versions(
                 std::cout << vResult << " vs " << m_cpu_result << std::endl;
                 std::cout << std::endl;
             } else {
-                std::cout << " Version " << name << " " << vStat << std::endl;
+                //std::cout << " Version " << name << " " << vStat << std::endl;
             }
             exportCsv(std::vector<KernelStats>{vStat}, "./csv/all.csv");
         } catch (std::exception &e) {
@@ -139,30 +146,34 @@ std::vector<std::string> IKernel<Data, Result>::list_version() {
 
 template <typename Data, typename Result>
 void IKernel<Data, Result>::run_benchmark(class_umap<IVersion<Data, Result>> versions) {
-    std::vector<int> warmups = {};
-    std::vector<int> repetitions = {10,50,125,250,375,500,750,1000,1500};
+    std::vector<int> warmups = {0, 1, 5};
+    std::vector<int> repetitions = {10, 50, 125, 250, 375, 500, 750, 1000};
+    std::vector<bool> flush_l2 = {true, false};
+    std::vector<bool> blocking = {true, false};
+    std::vector<uint> work_size = {1,2,4,8,10};
     int reruns = 1;
-    int total = reruns * (warmups.size() + repetitions.size());
+    int total = reruns * (warmups.size() * repetitions.size() * flush_l2.size() * blocking.size());
     int done = 0;
-    for(int _ = 0; _ < reruns ; _++){
-        for(int w:warmups ){
-            m_warmup = w;
-            m_repetitions = DEF_REPETITIONS;
-            run_versions(versions);
-            ++done;
-            std::cout << "\rProgress : " << done << " / " << total << std::flush;
+    for (int w : warmups) {
+        for (int r : repetitions) {
+            for (bool f : flush_l2) {
+                for (bool b : blocking) {
+                    for(uint wz : work_size){
+                        if(b && w == 0){
+                            m_block_kernel = false;
+                        }else{
+                            m_block_kernel = b;
+                        }
+                        m_work_size = wz;
+                        m_warmups = w;
+                        m_repetitions = r;
+                        m_flush_l2 = f;
+                        run_versions(versions);
+                        ++done;
+                        std::cout << "\rProgress : " << done << " / " << total << std::flush;
+                    }    
+                }
+            }
         }
-        std::cout << std::endl;
-        for(int r : repetitions){
-            m_warmup = DEF_WARMUP;
-            m_repetitions = r;
-            run_versions(versions);
-            ++done;
-            std::cout << "\rProgress : " << done << " / " << total << std::flush;
-        }
-        std::cout << std::endl;
     }
-    
 }
-
-

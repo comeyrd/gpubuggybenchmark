@@ -27,7 +27,7 @@ struct AccuracySettings : BaseSettings{
         grid_sz((n_rows_ + GPU_NUM_THREADS - 1) / GPU_NUM_THREADS){};
 };
 
-struct AccuracyData : BaseData {
+struct AccuracyData : IData {
     int n_rows;
     int ndims;
     int *label;
@@ -35,7 +35,11 @@ struct AccuracyData : BaseData {
     float *data;
     size_t data_sz_bytes;
     int topk;
-    explicit AccuracyData(const AccuracySettings& settings) : BaseData(settings){
+    int grid_sz = (NROWS + GPU_NUM_THREADS - 1) / GPU_NUM_THREADS;
+    explicit AccuracyData(uint work_size) : BaseData(settings){
+       int n_rows = NROWS * work_size;
+        int ndims = NDIMS;
+        int topk = TOP_K;
         n_rows = settings.n_rows;
         ndims = settings.ndims;
         topk = settings.topk;

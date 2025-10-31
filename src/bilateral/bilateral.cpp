@@ -18,14 +18,10 @@ void templated_run_cpu(const BilateralData &bData, BilateralData &bResult) {
             for (int i = -R; i <= R; i++) {
                 for (int j = -R; j <= R; j++) {
 
-                    uint idk = idx + i;
-                    uint idl = idy + j;
-
-                    // mirror edges
-                    if (idk < 0)
-                        idk = -idk;
-                    if (idl < 0)
-                        idl = -idl;
+                    int n_idk = idx + i;
+                    int n_idl = idy + j;
+                    uint idk = (n_idk < 0) ? static_cast<uint>(-n_idk) : static_cast<uint>(n_idk);
+                    uint idl = (n_idl < 0) ? static_cast<uint>(-n_idl) : static_cast<uint>(n_idl);
                     if (idk > bData.width - 1)
                         idk = bData.width - 1 - i;
                     if (idl > bData.height - 1)
