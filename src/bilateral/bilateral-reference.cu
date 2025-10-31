@@ -60,25 +60,21 @@ __global__ void bilateralFilter(
 }
 
 void ReferenceBilateral::setup() {
+  CHECK_CUDA(cudaMalloc((void **)&d_dst, m_data->b_size));
+  CHECK_CUDA(cudaMalloc((void **)&d_src, m_data->b_size));
+  CHECK_CUDA(cudaMemcpy(d_src, m_data->image, m_data->b_size, cudaMemcpyHostToDevice));
+  threads = dim3(16, 16);
+  blocks = dim3((m_data->width + 15) / 16, (m_data->height + 15) / 16);
 }
 
 void ReferenceBilateral::run(stream_t* s) {
-    CHECK_CUDA(cudaMalloc((void **)&d_dst, data->size * sizeof(float)));
-    CHECK_CUDA(cudaMalloc((void **)&d_src, data->size * sizeof(float)));
-    CHECK_CUDA(cudaMemcpy(d_src, data->image, data->size * sizeof(float), cudaMemcpyHostToDevice));
-    threads = dim3(16, 16);
-    blocks = dim3((data->width + 15) / 16, (data->height + 15) / 16);
-    CHECK_CUDA(cudaGetLastError());
-    CHECK_CUDA(cudaDeviceSynchronize());
-    bilateralFilter<4><<<blocks, threads, 0, s->native>>>(d_src, d_dst, data->width, data->height, settings->a_square, settings->variance_I, settings->variance_spatial);
-    CHECK_CUDA(cudaDeviceSynchronize());
-    CHECK_CUDA(cudaGetLastError());
-    cudaFree(d_dst);
-    cudaFree(d_src);
+    bilateralFilter<4><<<blocks, threads, 0, s->native>>>(d_src, d_dst, m_data->width, m_data->height, m_data->a_square, m_data->variance_I, m_data->variance_spatial);
 };
 
-void ReferenceBilateral::teardown() {
-
+void ReferenceBilateral::teardown(BilateralData &_result) {
+  CHECK_CUDA(cudaMemcpy(_result.image, d_dst, m_data->b_size, cudaMemcpyDeviceToHost)); 
+  cudaFree(d_dst);
+  cudaFree(d_src);
 };
 
 REGISTER_CLASS(IBilateral, ReferenceBilateral);

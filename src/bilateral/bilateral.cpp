@@ -1,8 +1,10 @@
 #include "bilateral.hpp"
 #include <cstring>
+#pragma GCC push_options
+#pragma GCC optimize ("unroll-loops")
 
 template <int R>
-void templated_run_cpu(const BilateralData &bData, const BilateralSettings &settings, BilateralData &bResult) {
+void templated_run_cpu(const BilateralData &bData, BilateralData &bResult) {
 #pragma omp parallel for collapse(2) 
     for (uint idx = 0; idx < bData.width; idx++) {
         for (uint idy = 0; idy < bData.height; idy++) {
@@ -13,9 +15,7 @@ void templated_run_cpu(const BilateralData &bData, const BilateralSettings &sett
             float normalization = 0.f;
 
 // window centered at the coordinate (idx, idy)
-#pragma unroll
             for (int i = -R; i <= R; i++) {
-#pragma unroll
                 for (int j = -R; j <= R; j++) {
 
                     uint idk = idx + i;
@@ -35,13 +35,13 @@ void templated_run_cpu(const BilateralData &bData, const BilateralSettings &sett
                     float I_w = bData.image[id_w];
 
                     // range kernel for smoothing differences in intensities
-                    float range = -(I - I_w) * (I - I_w) / (2.f * settings.variance_I);
+                    float range = -(I - I_w) * (I - I_w) / (2.f * bData.variance_I);
 
                     // spatial kernel for smoothing differences in coordinates
-                    float spatial = -((idk - idx) * (idk - idx) + (idl - idy) * (idl - idy)) / (2.f * settings.variance_spatial);
+                    float spatial = -((idk - idx) * (idk - idx) + (idl - idy) * (idl - idy)) / (2.f * bData.variance_spatial);
 
                     // combined weight
-                    float weight = settings.a_square * expf(spatial + range);
+                    float weight = bData.a_square * expf(spatial + range);
                     normalization += weight;
                     res += (I_w * weight);
                 }
@@ -50,6 +50,7 @@ void templated_run_cpu(const BilateralData &bData, const BilateralSettings &sett
         }
     }
 }
+#pragma GCC pop_options
 
 void BilateralData::generate_random() {
     srand(123);

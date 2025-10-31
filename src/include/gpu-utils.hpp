@@ -12,6 +12,8 @@ class GpuStream{
         stream_t* get_stream() const {
             return stream;
         }
+        bool get_stream_availability();
+        void synchronize();
     private:
         stream_t* stream;
 };
@@ -72,12 +74,13 @@ private:
     event_t **warmupstop;
     event_t **repetitionstart;
     event_t **repetitionstop;
-    BaseSettings *settings;
     stream_t *stream;
     int nb_w = 0; // what warmup iteration are we on
     int nb_r = 0; // what repetition iteration are we on
+    int m_warmup;
+    int m_repetitions;
 public:
-    GpuEventTimer(BaseSettings &settings_, stream_t *gpustream);
+    GpuEventTimer(const int& warmup, const int& repetitions, stream_t *gpustream);
     ~GpuEventTimer();
     void begin_mem2D();
     void end_mem2D();

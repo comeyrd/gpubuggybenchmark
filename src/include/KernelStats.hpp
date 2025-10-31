@@ -6,7 +6,21 @@
 #include <string>      // std::string
 #include "Types.hpp"
 
+#include <iostream>
+#include <chrono>
+
+template <typename Func>
+void MeasureCpuTime(const std::string& name, Func func) {
+    auto start = std::chrono::high_resolution_clock::now();
+    func();
+    auto end = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double, std::milli> duration = end - start;
+    std::cout << name << " took " << duration.count() << " ms" << std::endl;
+}
+
 struct KernelStats{
+    int m_warmup;
+    int m_repetitions;
     float memcpy2D = 0;//Mem init + copy 2device
     float memcpy2H = 0;//copy back 2 host
     float* warmup_duration;
@@ -15,13 +29,13 @@ struct KernelStats{
     float mean_repetitions;
     int nb_w;
     int nb_r;
-    BaseSettings* settings;
     bool str_ver_ker = false;//if the kernel and version have been allocated and filled
     std::string kernel;
     std::string version;
-    explicit KernelStats(BaseSettings &settings_):settings(&settings_){
-        warmup_duration = new float[settings->warmup];
-        repetitions_duration = new float[settings->repetitions];
+
+    explicit KernelStats(const int& warmup, const int& repetitions):m_warmup(warmup), m_repetitions(repetitions){
+        warmup_duration = new float[m_warmup];
+        repetitions_duration = new float[m_repetitions];
     }
     ~KernelStats(){
         delete warmup_duration;
@@ -52,7 +66,6 @@ struct KernelStats{
           mean_repetitions(other.mean_repetitions),
           nb_w(other.nb_w),
           nb_r(other.nb_r),
-          settings(other.settings),
           str_ver_ker(other.str_ver_ker),
           kernel(other.kernel),
           version(other.version)
@@ -100,7 +113,7 @@ struct CSVExportable<KernelStats> {
         }
         oss << ks.repetitions_duration[ks.nb_r-1] << ",";
         
-        oss << ks.settings->warmup << "," << ks.settings->repetitions;
+        oss << ks.m_warmup << "," << ks.m_repetitions;
 
         if (ks.str_ver_ker){
             oss << "," << ks.kernel << "," << ks.version;    

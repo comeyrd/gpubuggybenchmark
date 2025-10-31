@@ -3,30 +3,24 @@
 #include "gpu-utils.hpp"
 #include <memory>
 
-struct BaseSettings {
-    int repetitions;
-    int warmup;
-    BaseSettings(int _repetitions, int _warmup) : repetitions(_repetitions), warmup(_warmup) {};
-    ~BaseSettings() = default;
-
-};
-
-struct BaseData {
+struct IData {
     virtual void generate_random() = 0;
-    BaseData(const BaseData &) = delete;
-    BaseData &operator=(const BaseData &) = delete;
-    BaseData(BaseData &&) noexcept = default;
-    BaseData &operator=(BaseData &&) noexcept = default;
+    virtual void resize(uint work_size) = 0;
+    IData(const IData &) = delete;
+    IData &operator=(const IData &) = delete;
+    IData(IData &&) noexcept = default;
+    IData &operator=(IData &&) noexcept = default;
+    virtual ~IData() = default;
 
 protected:
-    explicit BaseData(const BaseSettings &settings) {}
+    explicit IData(const int &work_size) {}
 };
 
-struct BaseResult {
-    virtual ~BaseResult() = default;
+struct IResult {
+    virtual ~IResult() = default;
 
 protected:
-    explicit BaseResult(const BaseSettings &settings) {};
+    explicit IResult(const int &work_size) {};
 };
 
 #endif

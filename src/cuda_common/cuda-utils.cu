@@ -1,5 +1,4 @@
 #include "cuda-utils.hpp"
-#include "cuda_profiling.hpp"
 #include <cuda/std/chrono>
 
 event_t **allocate_event_array(int count) {
@@ -27,13 +26,19 @@ GpuStream::~GpuStream() {
     CHECK_CUDA(cudaStreamDestroy(stream->native));
     delete stream;
 }
+bool GpuStream::get_stream_availability(){
+    cudaError_t stream_status = cudaStreamQuery(stream->native);
+    if(stream_status == cudaSuccess){
+          return true;
+    }else{
+        std::cout << cudaGetErrorString(stream_status) << std::endl;
+        return false;
+    }
+}
+void GpuStream::synchronize(){
+    CHECK_CUDA(cudaStreamSynchronize(stream->native));
+}
 
-void gpuStreamCreate(stream_t *stream) {
-    CHECK_CUDA(cudaStreamCreate(&stream->native));
-}
-void gpuStreamDestroy(stream_t *stream) {
-    CHECK_CUDA(cudaStreamDestroy(stream->native));
-}
 void setup_gpu() {
     CHECK_CUDA(cudaSetDevice(0));
 }
@@ -50,7 +55,7 @@ void check_cuda_error(cudaError_t error_code, const char *file, int line) {
     }
 }
 
-GpuEventTimer::GpuEventTimer(BaseSettings &settings_, stream_t *gpustream) : settings(&settings_), stream(gpustream) {
+GpuEventTimer::GpuEventTimer(const int &warmup, const int& repetitions, stream_t *gpustream) : m_warmup(warmup), m_repetitions(repetitions), stream(gpustream) {
     memstart2D = new event_t;
     memstop2D = new event_t;
     memstart2H = new event_t;
@@ -59,10 +64,10 @@ GpuEventTimer::GpuEventTimer(BaseSettings &settings_, stream_t *gpustream) : set
     CHECK_CUDA(cudaEventCreate(&memstop2D->native));
     CHECK_CUDA(cudaEventCreate(&memstart2H->native));
     CHECK_CUDA(cudaEventCreate(&memstop2H->native));
-    warmupstart = allocate_event_array(settings->warmup);
-    warmupstop = allocate_event_array(settings->warmup);
-    repetitionstart = allocate_event_array(settings->repetitions);
-    repetitionstop = allocate_event_array(settings->repetitions);
+    warmupstart = allocate_event_array(m_warmup);
+    warmupstop = allocate_event_array(m_warmup);
+    repetitionstart = allocate_event_array(m_repetitions);
+    repetitionstop = allocate_event_array(m_repetitions);
 };
 
 GpuEventTimer::~GpuEventTimer() {
@@ -71,10 +76,10 @@ GpuEventTimer::~GpuEventTimer() {
         CHECK_CUDA(cudaEventDestroy(memstop2D->native));
         CHECK_CUDA(cudaEventDestroy(memstart2H->native));
         CHECK_CUDA(cudaEventDestroy(memstop2H->native));
-        free_event_array(warmupstart, settings->warmup);
-        free_event_array(warmupstop, settings->warmup);
-        free_event_array(repetitionstart, settings->repetitions);
-        free_event_array(repetitionstop, settings->repetitions);
+        free_event_array(warmupstart, m_warmup);
+        free_event_array(warmupstop, m_warmup);
+        free_event_array(repetitionstart, m_repetitions);
+        free_event_array(repetitionstop, m_repetitions);
     } catch (std::exception &e) {
         std::cerr << "Error destroying Cuda profiler" << e.what() << std::endl;
     }
@@ -116,7 +121,7 @@ KernelStats GpuEventTimer::retreive() {
     CHECK_CUDA(cudaEventSynchronize(memstart2D->native));
     CHECK_CUDA(cudaEventSynchronize(memstart2H->native));
     CHECK_CUDA(cudaEventSynchronize(memstop2H->native));
-    KernelStats stats(*settings);
+    KernelStats stats(m_warmup,m_repetitions);
     CHECK_CUDA(cudaEventElapsedTime(&stats.memcpy2D, memstart2D->native, memstop2D->native));
     CHECK_CUDA(cudaEventElapsedTime(&stats.memcpy2H, memstart2H->native, memstop2H->native));
     for (int w = 0; w < nb_w; w++) {

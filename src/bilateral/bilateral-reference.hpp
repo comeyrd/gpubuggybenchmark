@@ -7,7 +7,7 @@ public:
     void setup() override;
     virtual void reset() override {};
     virtual void run(stream_t* s) override;
-    virtual void teardown() override;
+    virtual void teardown(BilateralData &_result) override;
 
 private:
     float *d_src;

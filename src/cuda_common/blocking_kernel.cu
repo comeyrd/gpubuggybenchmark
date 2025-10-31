@@ -44,7 +44,8 @@ __global__ void block_stream(const volatile int32_t *flag,
     if (now >= timeout_point) {
         *timeout_flag = 1;
         __threadfence_system(); // Ensure timeout flag visibility on host.
-        printf("\n"
+        printf("\n Deadlock detected\n");
+        /*printf("\n"
                "######################################################################\n"
                "##################### Possible Deadlock Detected #####################\n"
                "######################################################################\n"
@@ -77,7 +78,8 @@ __global__ void block_stream(const volatile int32_t *flag,
                "\n"
                "For more information, see the 'Benchmark Properties' section of the\n"
                "NVBench documentation.\n\n",
-               timeout);
+               timeout);*/
+
     }
 }
 
@@ -88,7 +90,7 @@ blocking_kernel::blocking_kernel() {
         cudaHostRegister(&m_host_timeout_flag, sizeof(m_host_timeout_flag), cudaHostRegisterMapped));
     CHECK_CUDA(cudaHostGetDevicePointer(&m_device_timeout_flag, &m_host_timeout_flag, 0));
 }
-
+cudaDeviceSynchronize
 blocking_kernel::~blocking_kernel() {
     CHECK_CUDA(cudaHostUnregister(&m_host_flag));
     CHECK_CUDA(cudaHostUnregister(&m_host_timeout_flag));
