@@ -80,25 +80,14 @@ KernelStats IKernel<Data, Result>::run_impl(
         version_impl->run(stream.get_stream());
         timer.end_warmup();
     }
-    stream.synchronize();
-    blocker.block(stream.get_stream(),10);
-    int blocked_rep = DEF_BLOCKING_KERNEL_REP;
-    if(blocked_rep > m_repetitions){
-        blocked_rep = m_repetitions;
-    }
-    for(int b = 0; b < blocked_rep ; b++){
-        flusher.flush(stream.get_stream());
-        timer.begin_repetition();
-        version_impl->run(stream.get_stream());
-        std::cout <<"."<<std::endl;
-        timer.end_repetition();
-    }
-    blocker.unblock();
-    for (int r = blocked_rep; r < m_repetitions;r++ ){
+    for (int r = 0; r < m_repetitions;r++ ){
+        stream.synchronize();
+        blocker.block(stream.get_stream(),10);
         flusher.flush(stream.get_stream());
         timer.begin_repetition();
         version_impl->run(stream.get_stream());
         timer.end_repetition();
+        blocker.unblock();
     }
     timer.begin_mem2H();
     timer.end_mem2H();

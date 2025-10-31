@@ -90,7 +90,6 @@ blocking_kernel::blocking_kernel() {
         cudaHostRegister(&m_host_timeout_flag, sizeof(m_host_timeout_flag), cudaHostRegisterMapped));
     CHECK_CUDA(cudaHostGetDevicePointer(&m_device_timeout_flag, &m_host_timeout_flag, 0));
 }
-cudaDeviceSynchronize
 blocking_kernel::~blocking_kernel() {
     CHECK_CUDA(cudaHostUnregister(&m_host_flag));
     CHECK_CUDA(cudaHostUnregister(&m_host_timeout_flag));
