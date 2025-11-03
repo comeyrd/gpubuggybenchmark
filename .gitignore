@@ -3,3 +3,4 @@ build/
 .venv/
 csv/
 __pycache__/
+*.pickle
