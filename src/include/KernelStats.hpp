@@ -130,7 +130,7 @@ struct CSVExportable<KernelStats> {
         for (int r = 0; r < ks.nb_r-1;r++){
             oss << ks.repetitions_duration[r] << "|";
         }
-        oss << ks.repetitions_duration[ks.nb_r-1] << ",";
+        oss << ks.repetitions_duration[ks.nb_r-1];
 
         if (ks.str_ver_ker){
             oss << "," << ks.kernel << "," << ks.version;    
