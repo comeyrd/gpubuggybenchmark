@@ -12,7 +12,7 @@ def load_or_compute(pickle_path, compute_func,file):
     if os.path.exists(pickle_path):
         with open(pickle_path, "rb") as f:
             return pickle.load(f)
-    
+
     result = compute_func(file=file)
     
     with open(pickle_path, "wb") as f:
@@ -31,9 +31,9 @@ def wrap_title(title, width=25):
 
 def load_experiment(path):
     df_experiment = pd.read_csv(path)
-    df_experiment["warmup_duration"] = df_experiment["warmup_duration"].apply(lambda x: [float(i) for i in str(x).split('|')])
-    df_experiment["repetitions_duration"] = df_experiment["repetitions_duration"].apply(lambda x: [float(i) for i in x.split('|')])
-    df_experiment['warmup_duration'] = df_experiment['warmup_duration'].apply(lambda x: [] if x == [0.0] else x)
+    df_experiment["warmup_duration"] = df_experiment["warmup_duration"].apply(lambda x: np.array([float(i) for i in str(x).split('|')]))
+    df_experiment["repetitions_duration"] = df_experiment["repetitions_duration"].apply(lambda x: np.array([float(i) for i in x.split('|')]))
+    df_experiment['warmup_duration'] = df_experiment['warmup_duration'].apply(lambda x: [] if np.array_equal(np.asarray(x), np.array([0.0])) else x)
     return df_experiment
 
 def compare_two_cdf(dataframe,x_name="repetitions_duration",hue_name="version"):
@@ -67,7 +67,7 @@ def compare_densities(dataframe,x_name="repetitions_duration",hue_name="version"
 
 def plot_comparing_two_versions_single_repetitions(dataframe:pd.DataFrame,warmup=5,repetitions=1000,versions=["ReferenceAccuracy","BCAccuracy"]):
     fig, axs = plt.subplots(1, 2, figsize=(12, 6), constrained_layout=True)
-    temp_df = dataframe[dataframe["warmup"]==warmup]
+    temp_df = dataframe[dataframe["warmups"]==warmup]
     temp_df = dataframe[dataframe["repetitions"]==repetitions]
     temp_df = temp_df[temp_df["version"].isin(versions)]
     temp_df = temp_df.drop_duplicates(subset=["repetitions","version"], keep="first")
@@ -169,7 +169,7 @@ def plot_evolution_std_error(dataframe):
 
 def plot_compare_repetitions_single_version(dataframe:pd.DataFrame,warmup=5,version="ReferenceAccuracy"):
     fig, axs = plt.subplots(1, 4, figsize=(16, 6), constrained_layout=True)
-    temp_df = dataframe[dataframe["warmup"]==warmup]
+    temp_df = dataframe[dataframe["warmups"]==warmup]
     temp_df = temp_df[temp_df["version"].str.contains(version)]
     temp_df = temp_df.drop_duplicates(subset=["repetitions","version"], keep="first")
     temp_df_exploded = temp_df.explode('repetitions_duration')
@@ -190,7 +190,7 @@ def plot_compare_repetitions_single_version(dataframe:pd.DataFrame,warmup=5,vers
 
 
 def plot_compare_repetitions_multiple_version(dataframe:pd.DataFrame,warmup=5):
-    dataframe_w = dataframe[dataframe["warmup"]==warmup]
+    dataframe_w = dataframe[dataframe["warmups"]==warmup]
     versions = dataframe_w["version"].unique()
     nb_rows = len(versions)
     fig, axs = plt.subplots(nb_rows, 4, figsize=(16, nb_rows*3), constrained_layout=True)
