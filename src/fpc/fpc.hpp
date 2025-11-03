@@ -8,11 +8,11 @@
 #include <string>
 #include <unordered_map>
 
-constexpr uint _WORK_GROUP_SIZE = 256;
+constexpr int _WORK_GROUP_SIZE = 256;
 constexpr size_t _LENGTH = _WORK_GROUP_SIZE * 4500000;//250M
 struct FPCSettings : BaseSettings{
     size_t length = _LENGTH;
-    uint wgz = _WORK_GROUP_SIZE;
+    int wgz = _WORK_GROUP_SIZE;
     explicit FPCSettings(int repetitions_, int warmup_): BaseSettings(repetitions_,warmup_){};
 };
 

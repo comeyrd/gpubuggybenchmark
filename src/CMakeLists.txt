@@ -13,7 +13,7 @@ if(CMAKE_CUDA_COMPILER)
     enable_language(CUDA)
     ##TODO setup Debug & Release
     #set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --generate-line-info")
-    set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --keep --keep-dir ${CMAKE_BINARY_DIR}/ptx")
+    #set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --keep --keep-dir ${CMAKE_BINARY_DIR}/ptx")
     add_subdirectory(cuda_common)
 else()
     check_language(HIP)

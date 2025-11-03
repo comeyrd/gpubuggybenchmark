@@ -77,10 +77,9 @@ private:
     stream_t *stream;
     int nb_w = 0; // what warmup iteration are we on
     int nb_r = 0; // what repetition iteration are we on
-    int m_warmups;
-    int m_repetitions;
+    ExecutionConfig m_config;
 public:
-    GpuEventTimer(int warmup, int repetitions, stream_t *gpustream);
+    GpuEventTimer(ExecutionConfig config, stream_t *gpustream);
     ~GpuEventTimer();
     void begin_mem2D();
     void end_mem2D();

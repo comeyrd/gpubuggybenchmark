@@ -19,8 +19,7 @@ void MeasureCpuTime(const std::string& name, Func func) {
 }
 
 struct KernelStats{
-    int m_warmups;
-    int m_repetitions;
+    ExecutionConfig m_config;
     float memcpy2D = 0;//Mem init + copy 2device
     float memcpy2H = 0;//copy back 2 host
     float* warmup_duration;
@@ -33,9 +32,9 @@ struct KernelStats{
     std::string kernel;
     std::string version;
 
-    explicit KernelStats(const int& warmup, const int& repetitions):m_warmups(warmup), m_repetitions(repetitions){
-        warmup_duration = new float[m_warmups];
-        repetitions_duration = new float[m_repetitions];
+    explicit KernelStats(ExecutionConfig config):m_config(config){
+        warmup_duration = new float[m_config.m_warmups];
+        repetitions_duration = new float[m_config.m_repetitions];
     }
     ~KernelStats(){
         delete warmup_duration;
@@ -60,8 +59,7 @@ struct KernelStats{
         mean_repetitions = total / nb_r;
     }
     KernelStats(const KernelStats& other)
-        : m_warmups(other.m_warmups),
-          m_repetitions(other.m_repetitions),
+        : m_config(other.m_config),
           memcpy2D(other.memcpy2D),
           memcpy2H(other.memcpy2H),
           mean_warmup(other.mean_warmup),
@@ -95,15 +93,34 @@ struct KernelStats{
 
 template <typename T>
 struct CSVExportable;
+template <>
+struct CSVExportable<ExecutionConfig> {
+    static std::string header() {
+        return "repetitions,warmups,work_size,flush_l2,blocking";
+    }
 
+    static std::string values(const ExecutionConfig& cfg) {
+        std::ostringstream oss;
+        oss << cfg.m_repetitions << ","
+            << cfg.m_warmups << ","
+            << cfg.m_work_size << ","
+            << (cfg.m_flush_l2 ? 1 : 0) << ","
+            << (cfg.m_blocking ? 1 : 0);
+        return oss.str();
+    }
+};
 template <>
 struct CSVExportable<KernelStats> {
     static std::string header() {
-        return "memcpy2D,memcpy2H,warmup_duration,repetitions_duration,warmup,repetitions,kernel,version";
+        std::ostringstream oss;
+        oss << CSVExportable<ExecutionConfig>::header()
+            << ",memcpy2D,memcpy2H,warmup_duration,repetitions_duration,kernel,version";
+        return oss.str();
     }
 
     static std::string values(const KernelStats& ks) {
         std::ostringstream oss;
+        oss << CSVExportable<ExecutionConfig>::values(ks.m_config) << ",";
         oss << std::fixed << std::setprecision(6) << ks.memcpy2D << "," << ks.memcpy2H << "," ;
         for (int w = 0; w < ks.nb_w-1;w++){
             oss << ks.warmup_duration[w] << "|";
@@ -114,8 +131,6 @@ struct CSVExportable<KernelStats> {
             oss << ks.repetitions_duration[r] << "|";
         }
         oss << ks.repetitions_duration[ks.nb_r-1] << ",";
-        
-        oss << ks.m_warmups << "," << ks.m_repetitions;
 
         if (ks.str_ver_ker){
             oss << "," << ks.kernel << "," << ks.version;    

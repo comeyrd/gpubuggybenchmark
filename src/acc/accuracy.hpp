@@ -36,7 +36,7 @@ struct AccuracyData : IData {
     size_t data_sz_bytes;
     int topk;
     int grid_sz = (NROWS + GPU_NUM_THREADS - 1) / GPU_NUM_THREADS;
-    explicit AccuracyData(uint work_size) : BaseData(settings){
+    explicit AccuracyData(int work_size) : BaseData(settings){
        int n_rows = NROWS * work_size;
         int ndims = NDIMS;
         int topk = TOP_K;

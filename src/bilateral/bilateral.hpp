@@ -15,22 +15,22 @@ constexpr float VARIANCE_I = 10.0f;
 constexpr float VARIANCE_SPATIALE = 12.0f;
 constexpr float A_SQUARE = 0.5f / (VARIANCE_I * (float)M_PI);
 
-constexpr uint MINIMAL_WIDTH = 500;
-constexpr uint MINIMAL_HEIGHT = 500;
+constexpr int MINIMAL_WIDTH = 500;
+constexpr int MINIMAL_HEIGHT = 500;
 
 constexpr float ROUNDING_ERROR = 1e-3;
 
 struct BilateralData : IData,IResult {
-    uint width;
-    uint height;
+    int width;
+    int height;
     float a_square = A_SQUARE;
     float variance_I = VARIANCE_I;
     float variance_spatial = VARIANCE_SPATIALE;
     size_t b_size;
-    uint size;
+    int size;
     float *image;
 
-    explicit BilateralData(const uint& work_size ) : IData(work_size), IResult(work_size){
+    explicit BilateralData(const int& work_size ) : IData(work_size), IResult(work_size){
         width = MINIMAL_WIDTH * work_size;
         height = MINIMAL_HEIGHT * work_size;
         size = width * height;
@@ -41,7 +41,7 @@ struct BilateralData : IData,IResult {
     };
 
     void generate_random() override;
-    void resize(uint work_size) override{
+    void resize(int work_size) override{
         if(image){
             free(image);
             image = nullptr;
@@ -60,7 +60,7 @@ struct BilateralData : IData,IResult {
     bool operator==(const BilateralData &other) const {
         if (size == other.size) {
             int count = 0;
-            for (uint i = 0; i < size; i++) {
+            for (int i = 0; i < size; i++) {
                 if (fabsf(image[i] - other.image[i]) > ROUNDING_ERROR) {
                     count ++;
                 }

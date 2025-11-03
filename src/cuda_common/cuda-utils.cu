@@ -55,7 +55,7 @@ void check_cuda_error(cudaError_t error_code, const char *file, int line) {
     }
 }
 
-GpuEventTimer::GpuEventTimer(int warmup, int repetitions, stream_t *gpustream) : m_warmups(warmup), m_repetitions(repetitions), stream(gpustream) {
+GpuEventTimer::GpuEventTimer(ExecutionConfig config, stream_t *gpustream) : m_config(config), stream(gpustream) {
     memstart2D = new event_t;
     memstop2D = new event_t;
     memstart2H = new event_t;
@@ -64,10 +64,10 @@ GpuEventTimer::GpuEventTimer(int warmup, int repetitions, stream_t *gpustream) :
     CHECK_CUDA(cudaEventCreate(&memstop2D->native));
     CHECK_CUDA(cudaEventCreate(&memstart2H->native));
     CHECK_CUDA(cudaEventCreate(&memstop2H->native));
-    warmupstart = allocate_event_array(m_warmups);
-    warmupstop = allocate_event_array(m_warmups);
-    repetitionstart = allocate_event_array(m_repetitions);
-    repetitionstop = allocate_event_array(m_repetitions);
+    warmupstart = allocate_event_array(m_config.m_warmups);
+    warmupstop = allocate_event_array(m_config.m_warmups);
+    repetitionstart = allocate_event_array(m_config.m_repetitions);
+    repetitionstop = allocate_event_array(m_config.m_repetitions);
 };
 
 GpuEventTimer::~GpuEventTimer() {
@@ -76,10 +76,10 @@ GpuEventTimer::~GpuEventTimer() {
         CHECK_CUDA(cudaEventDestroy(memstop2D->native));
         CHECK_CUDA(cudaEventDestroy(memstart2H->native));
         CHECK_CUDA(cudaEventDestroy(memstop2H->native));
-        free_event_array(warmupstart, m_warmups);
-        free_event_array(warmupstop, m_warmups);
-        free_event_array(repetitionstart, m_repetitions);
-        free_event_array(repetitionstop, m_repetitions);
+        free_event_array(warmupstart, m_config.m_warmups);
+        free_event_array(warmupstop, m_config.m_warmups);
+        free_event_array(repetitionstart, m_config.m_repetitions);
+        free_event_array(repetitionstop, m_config.m_repetitions);
     } catch (std::exception &e) {
         std::cerr << "Error destroying Cuda profiler" << e.what() << std::endl;
     }
@@ -121,7 +121,7 @@ KernelStats GpuEventTimer::retreive() {
     CHECK_CUDA(cudaEventSynchronize(memstart2D->native));
     CHECK_CUDA(cudaEventSynchronize(memstart2H->native));
     CHECK_CUDA(cudaEventSynchronize(memstop2H->native));
-    KernelStats stats(nb_w,nb_r);
+    KernelStats stats(m_config);
     CHECK_CUDA(cudaEventElapsedTime(&stats.memcpy2D, memstart2D->native, memstop2D->native));
     CHECK_CUDA(cudaEventElapsedTime(&stats.memcpy2H, memstart2H->native, memstop2H->native));
     for (int w = 0; w < nb_w; w++) {

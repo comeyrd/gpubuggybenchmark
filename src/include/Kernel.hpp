@@ -51,10 +51,7 @@ public:
 
 using kernel_pair = std::pair<const std::string, std::shared_ptr<I_IKernel>>;
 
-constexpr int DEF_WARMUP = 5;
-constexpr int DEF_REPETITIONS = 400;
-constexpr int DEF_WORK_SIZE = 1;//Work Size multiplyier
-constexpr int DEF_BLOCKING_KERNEL_REP = 10;
+inline const std::string DEF_CSV_PATH = "./csv/all.csv";
 template <typename Data, typename Result>
 class IKernel : public I_IKernel {
     static_assert(is_data_type<Data>::value,
@@ -67,22 +64,17 @@ class IKernel : public I_IKernel {
                   "Result must be constructible from const int&");
 
 protected:
-    int m_work_size;
     Data m_data;
     Result m_cpu_result;
-    //TODO Maybe pack into a "config"? So the kernel stats can have the config ?
-    int m_repetitions;
-    int m_warmups;
-    bool m_flush_l2 = true;//TODO add logic
-    bool m_block_kernel = true;
+    std::string m_csv_path;
 public:
-    IKernel() : m_work_size(DEF_WORK_SIZE), m_data(m_work_size), m_cpu_result(m_work_size),m_repetitions(DEF_REPETITIONS),m_warmups(DEF_WARMUP) {};
+    IKernel() : m_data(DEF_WORK_SIZE), m_cpu_result(DEF_WORK_SIZE) {};
     void run(int argc, char **argv) override;
 
 private:
     virtual void run_cpu() = 0; // PUT THE RESULT OF THE COMPUTATION INSIDE cpu_result !!!
-    KernelStats run_impl(std::shared_ptr<IVersion<Data, Result>> version_impl, Result &result);
-    void run_versions(class_umap<IVersion<Data, Result>> versions);
+    KernelStats run_impl(std::shared_ptr<IVersion<Data, Result>> version_impl, ExecutionConfig &config, Result &result);
+    void run_versions(class_umap<IVersion<Data, Result>> versions,ExecutionConfig &config);
     void run_benchmark(class_umap<IVersion<Data, Result>> versions);
     std::vector<std::string> list_version();
 };
