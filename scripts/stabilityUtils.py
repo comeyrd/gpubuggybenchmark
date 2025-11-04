@@ -157,7 +157,10 @@ def compare_std_std_precision(dataframe,precision=0.0005):
     middle = np.mean(((dataframe["ci_high"] - dataframe["ci_low"]) / 2) + dataframe["ci_low"])
     interval_plot(0,middle + precision/2,middle - precision/2,color="red")
     for i in range(len(dataframe)):
-        interval_plot(i+1,dataframe.iloc[i].ci_high, dataframe.iloc[i].ci_low,color="blue")  
+        color_ = "blue"
+        if (dataframe.iloc[i].ci_high - dataframe.iloc[i].ci_low) <=precision:
+            color_ = "green"
+        interval_plot(i+1,dataframe.iloc[i].ci_high, dataframe.iloc[i].ci_low,color=color_)  
         plt.title(wrap_title("Measure precision vs 90% confidence interval of the standard deviation",40))
         
 def plot_evolution_std_error(dataframe):
@@ -194,6 +197,7 @@ def plot_compare_repetitions_multiple_version(dataframe:pd.DataFrame,warmup=5):
     versions = dataframe_w["version"].unique()
     nb_rows = len(versions)
     fig, axs = plt.subplots(nb_rows, 4, figsize=(16, nb_rows*3), constrained_layout=True)
+    axs = np.atleast_2d(axs)
     for i in range(nb_rows):
         temp_df = dataframe_w[dataframe_w["version"].str.contains(versions[i])].copy()
         temp_df = temp_df.drop_duplicates(subset=["repetitions","version"], keep="first")
