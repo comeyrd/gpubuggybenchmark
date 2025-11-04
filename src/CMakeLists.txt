@@ -2,9 +2,10 @@ cmake_minimum_required(VERSION 3.15)
 
 project(gpubuggy LANGUAGES CXX)
 ##TODO setup Debug & Release
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -O3 -g -fopenmp -funroll-loops")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -O3 -fopenmp -funroll-loops")
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -Wall -O0 -g")
 include(CheckLanguage)
+add_compile_options(-Wall -O3 -fopenmp -funroll-loops)
 check_language(CUDA)
 if(CMAKE_CUDA_COMPILER)
     message(STATUS "Using CUDA toolkit: ${CMAKE_CUDA_COMPILER}")
