@@ -39,8 +39,8 @@ void GpuStream::synchronize(){
     CHECK_CUDA(cudaStreamSynchronize(stream->native));
 }
 
-void setup_gpu() {
-    CHECK_CUDA(cudaSetDevice(0));
+void setup_gpu(int device) {
+    CHECK_CUDA(cudaSetDevice(device));
 }
 
 void reset_gpu() {

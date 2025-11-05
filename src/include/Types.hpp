@@ -44,11 +44,11 @@ struct ExecutionConfig{
         std::vector<ExecutionConfig> configs;
         configs.reserve(warmups_v.size() * repetitions_v.size() * work_size_v.size() * flush_l2_v.size() * blocking_v.size());
         for (auto w : warmups_v)
-        for (auto r : repetitions_v)
-            for (auto ws : work_size_v)
-                for (auto f : flush_l2_v)
-                    for (auto b : blocking_v)
-                        configs.emplace_back(r, w, ws, f, b);
+            for (auto r : repetitions_v)
+                for (auto ws : work_size_v)
+                    for (auto f : flush_l2_v)
+                        for (auto b : blocking_v)
+                            configs.emplace_back(r, w, ws, f, b);
         return configs;
     };
 };
