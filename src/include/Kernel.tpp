@@ -20,6 +20,7 @@ void IKernel<Data, Result>::run(int argc, char **argv) {
     kernel_parser.add_argument("--blocking-kernel").default_value(static_cast<int>(DEF_ENABLE_BLOCKING_KERNEL)).scan<'i', int>().help("Setting to 1 enables the blocking kernel");
     kernel_parser.add_argument("--flush-l2-cache").default_value(static_cast<int>(DEF_FLUSH_L2_CACHE)).scan<'i', int>().help("Setting to 1 enables the flush of l2 cache every run");
     kernel_parser.add_argument("--csv-path").default_value(DEF_CSV_PATH).help("Defines the csv path");
+    kernel_parser.add_argument("--device").default_value(0).scan<'i', int>().help("Defines the device used");
 
     // TODO the Result thingy has a way to auto register its parameters and parse or something like that ?
 
@@ -41,6 +42,7 @@ void IKernel<Data, Result>::run(int argc, char **argv) {
     bool blocking_kernel = (kernel_parser.get<int>("--flush-l2-cache") == 1);
     bool versions_set = kernel_parser.is_used("-cv");
     m_csv_path = kernel_parser.get<std::string>("--csv-path");
+    int device = kernel_parser.get<int>("--device");
     if (work_size != 1 && work_size % 2 != 0) {
         std::cout << "Work size should be a multiple of 2, using default work_size : " << DEF_WORK_SIZE << std::endl;
         work_size = DEF_WORK_SIZE;
@@ -60,7 +62,7 @@ void IKernel<Data, Result>::run(int argc, char **argv) {
         std::cout << kernel_parser << std::endl;
         return;
     }
-    setup_gpu();
+    setup_gpu(device);
     if (benchmark) {
         run_benchmark(version_map);
     } else {
@@ -123,7 +125,7 @@ void IKernel<Data, Result>::run_versions(
         try {
             // std::cout << "Version " << name << std::flush;
             KernelStats vStat = run_impl(version_impl, config, vResult);
-            reset_gpu();
+            //reset_gpu();
             vStat.set_kernel_version(this->name(), name);
             if (!(vResult == m_cpu_result)) {
                 std::cout << " Version " << name << " Failed" << std::endl;
@@ -154,11 +156,11 @@ std::vector<std::string> IKernel<Data, Result>::list_version() {
 
 template <typename Data, typename Result>
 void IKernel<Data, Result>::run_benchmark(class_umap<IVersion<Data, Result>> versions) {
-    std::vector<int> warmups = {0, 1, 5};
-    std::vector<int> repetitions = {10, 50, 125, 250, 375, 500, 750, 1000};
-    std::vector<bool> flush_l2 = {true, false};
+    std::vector<int> warmups = {5};
+    std::vector<int> repetitions = {10, 50, 125, 250, 375, 500, 750, 1000,1500};
     std::vector<bool> blocking = {true, false};
-    std::vector<int> work_size = {1, 2, 4, 8, 10};
+    std::vector<bool> flush_l2 = {true, false};
+    std::vector<int> work_size = {1, 2, 4};
     int reruns = 1;
     std::vector<ExecutionConfig> config_v = ExecutionConfig::generate_all_permutations(warmups, repetitions, work_size, flush_l2, blocking);
     int total = config_v.size() * reruns;

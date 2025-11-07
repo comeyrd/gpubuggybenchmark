@@ -1,6 +1,6 @@
 #ifndef GPUUTILS_HPP
 #define GPUUTILS_HPP
-void setup_gpu();
+void setup_gpu(int device);
 void reset_gpu();
 struct stream_t;
 struct event_t;

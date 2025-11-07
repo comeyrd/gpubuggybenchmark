@@ -2,8 +2,8 @@
 #include "hip-utils.hpp"
 #include "gpu-utils.hpp"
 
-void setup_gpu() {
-    CHECK_HIP(hipSetDevice(0));
+void setup_gpu(int device) {
+    CHECK_HIP(hipSetDevice(device));
 }
 
 void reset_gpu() {
