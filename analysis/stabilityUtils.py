@@ -3,66 +3,29 @@ import pickle
 import seaborn as sns
 import matplotlib.pyplot as plt
 import pandas as pd
-import time,random
 import numpy as np
 import scipy.stats as scistats
 from tqdm import tqdm
-
-def load_or_compute(pickle_path, compute_func,file):
-    if os.path.exists(pickle_path):
-        with open(pickle_path, "rb") as f:
-            return pickle.load(f)
-
-    result = compute_func(file=file)
-    
-    with open(pickle_path, "wb") as f:
-        pickle.dump(result, f)
-    
-    return result
-
-def save_to_pickle(pickle_path,data):
-    with open(pickle_path, "wb") as f:
-        pickle.dump(data, f)
-    
 import textwrap
 
 def wrap_title(title, width=25):
     return "\n".join(textwrap.wrap(title, width))
 
-def load_experiment(path):
-    df_experiment = pd.read_csv(path)
-    df_experiment["warmup_duration"] = df_experiment["warmup_duration"].apply(lambda x: np.array([float(i) for i in str(x).split('|')]))
-    df_experiment["repetitions_duration"] = df_experiment["repetitions_duration"].apply(lambda x: np.array([float(i) for i in x.split('|')]))
-    df_experiment['warmup_duration'] = df_experiment['warmup_duration'].apply(lambda x: [] if np.array_equal(np.asarray(x), np.array([0.0])) else x)
-    return df_experiment
-
-def compare_two_cdf(dataframe,x_name="repetitions_duration",hue_name="version"):
-    hue_ = dataframe[hue_name].unique()
-    colors = sns.color_palette("tab10", n_colors=len(hue_))
-    for i, u_hue in enumerate(hue_):
-        temp_df = dataframe[dataframe[hue_name] == u_hue]
-        sorted_data = np.sort(temp_df[x_name])
-        cdf = np.arange(1, len(sorted_data)+1) / len(sorted_data)
-        plt.plot(sorted_data, cdf, marker=None, color=colors[i],label=u_hue)
-    plt.xlabel('x')
-    plt.ylabel('CDF')
-    plt.title(f'Empirical CDF of execution time')
-    plt.legend()
-    plt.grid(True)
-    plt.show()
-    
 def compare_densities(dataframe,x_name="repetitions_duration",hue_name="version"):
     palette = sns.color_palette("tab10", n_colors=dataframe[hue_name].nunique())
-    sns.histplot(
-        data=dataframe,
-        x=x_name,
-        hue=hue_name,
-        kde=True,            # overlay KDE
-        stat="density",      # normalize histogram to match KDE
-        multiple="layer",    # overlay multiple categories
-        alpha=0.4,           # transparency
-        palette=palette,
-    )
+    sns.displot(
+    data=dataframe,
+    x=x_name,
+    hue=hue_name,
+    stat="probability",
+    binwidth=0.0005,
+    palette=palette,
+    alpha=0.7,
+    kind="hist",
+    multiple="layer",   # or "stack"
+    row=hue_name,       # <— key: each group gets its own subplot + y-axis
+    facet_kws={'sharey': False, 'sharex': True}
+)
     plt.title("Distribution of the execution time")
 
 def plot_comparing_two_versions_single_repetitions(dataframe:pd.DataFrame,warmup=5,repetitions=1000,versions=["ReferenceAccuracy","BCAccuracy"]):
@@ -75,71 +38,13 @@ def plot_comparing_two_versions_single_repetitions(dataframe:pd.DataFrame,warmup
     fig.suptitle(f"Comparing versions {', '.join(versions)} with repetitions {repetitions}", fontsize=14)
 
     plt.sca(axs[0])              # Make this axes the active one
-    compare_densities(temp_df_exploded,x_name="repetitions_duration",hue_name="version")
+    #compare_densities(temp_df_exploded,x_name="repetitions_duration",hue_name="version")
+    plot_multiple_densities(temp_df_exploded,hue="version",x_name="repetitions_duration")
     plt.sca(axs[1])
     compare_two_cdf(temp_df_exploded,x_name="repetitions_duration",hue_name="version")
     
 
     return fig
-
-def plot_all_single_kernel_multiple_rep(dataframe):
-    versionss = dataframe["version"].unique()
-    for repetitions in np.sort(dataframe["repetitions"].unique()):
-        g = plot_comparing_two_versions_single_repetitions(dataframe,repetitions=repetitions,versions=versionss)
-        plt.show()
-        plt.close(g)
-        
-        
-def boostrap_std(row,confidence):
-    res = scistats.bootstrap((row["repetitions_duration"],),np.std,confidence_level=confidence)
-    return res.confidence_interval,res.bootstrap_distribution,res.standard_error
-
-def load_n_compute_dataframe(confidence=0.9,dataframe=None,file=None):
-    df_e = []
-    if dataframe is not None:
-        df_e = dataframe.copy()
-    else:
-        df_e = load_experiment(file)
-    df_e['ci_low'] = None
-    df_e['ci_high'] = None
-    df_e['ci_level'] = confidence
-    df_e['boostrap_data'] = None
-    df_e['std_error'] = None
-
-    for idx in tqdm(df_e.index):
-        conf,data,std = boostrap_std(df_e.loc[idx],confidence)
-        df_e.at[idx,'ci_low'] = conf.low
-        df_e.at[idx,'ci_high'] = conf.high
-        df_e.at[idx,'boostrap_data'] = data
-        df_e.at[idx,'std_error'] = std
-    return df_e
-
-
-
-def plot_multiple_densities(dataframe,hue,x_name="repetitions_duration",weights_=None,title=""):
-    palette = sns.color_palette("tab20", n_colors=dataframe[hue].nunique())
-    if weights_:
-        sns.kdeplot(
-            data=dataframe,
-            x=x_name,
-            weights=dataframe[weights_],  
-            hue=hue,
-            common_norm=False,
-            palette=palette,
-            fill=True,
-            alpha=0.4
-        )
-    else:
-         sns.kdeplot(
-            data=dataframe,
-            x=x_name,
-            hue=hue,
-            common_norm=False,
-            palette=palette,
-            fill=True,
-            alpha=0.4
-        )
-    plt.title(wrap_title(title,35))
 
 
 def interval_plot(ix,high,low,horizontal_line_width=0.25,color='#2187bb'):
@@ -162,14 +67,8 @@ def compare_std_std_precision(dataframe,precision=0.0005):
             color_ = "green"
         interval_plot(i+1,dataframe.iloc[i].ci_high, dataframe.iloc[i].ci_low,color=color_)  
         plt.title(wrap_title("Measure precision vs 90% confidence interval of the standard deviation",40))
+    plt.leg
         
-def plot_evolution_std_error(dataframe):
-    plt.plot(dataframe["repetitions"], dataframe["std_error"], marker='o')
-    plt.xlabel("nbr of repetitions")
-    plt.ylabel("standard error")
-    plt.title("Evolution of Standard error of standard deviation")
-
-
 def plot_compare_repetitions_single_version(dataframe:pd.DataFrame,warmup=5,version="ReferenceAccuracy"):
     fig, axs = plt.subplots(1, 4, figsize=(16, 6), constrained_layout=True)
     temp_df = dataframe[dataframe["warmups"]==warmup]
