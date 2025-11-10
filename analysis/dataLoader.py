@@ -7,6 +7,14 @@ import numpy as np
 import scipy.stats as scistats
 from tqdm import tqdm
 import scipy.stats as scistats
+
+def hashable(item):
+  try:
+    hash(item)
+  except Exception as e:
+    return False
+  return True
+
 DEFAULT_R2 = 0.36
 DEFAULT_SLOPE = 0.048
 
@@ -35,35 +43,65 @@ class PickleWrapper:
 # Actions on experiment :
 # b -> boostrapping
 # e -> entropy
+class axisFilter:
+  axe:str
+  used:bool
+  explode:bool
+  def __init__(self,axe_:str,used_:bool=False,explode_:bool=False):
+    self.axe = axe_
+    self.used = used_
+    self.explode = explode_
 
+DEFAULT_INPUTS = ["repetitions","warmups","work_size","flush_l2","blocking","kernel","version"]
 class Filter:
-  warmups:int
-  repetitions:int
-  work_size:int
-  flush_l2:int
-  blocking:int
-  kernel:list
-  version:list
-  unique:list #In here, you should put a list of str with the columns you want to keep unique
+  defaults:dict
+  on_x:axisFilter
+  on_y:axisFilter
+  on_hue:axisFilter
   
-  def __init__(self,_unique=None, _warmups=None,_repetitions=None,_work_size=None,_flush_l2=None,_blocking=None,_kernels=None,_versions=None):
-    self.warmups = _warmups
-    self.repetitions = _repetitions
-    self.work_size = _work_size
-    self.flush_l2 = _flush_l2
-    self.blocking = _blocking
-    self.kernels = _kernels
-    self.versions = _versions
-    self.unique = _unique
+  def __init__(self,df):
+    self.defaults = {}
+    for def_input in DEFAULT_INPUTS:
+      if def_input in df.columns : 
+        values_l = df[def_input].unique()
+        self.defaults[def_input] = values_l[len(values_l)//2]
+      
+  def set_default(self,key,val):
+    self.defaults[key] = val
 
-
-
+  def set_axis(self,x_name:str,y_name:str,hue_name:str,explode_y:bool=True):
+    self.on_x = axisFilter(x_name)
+    self.on_y = axisFilter(y_name,explode_=explode_y)
+    self.on_hue = axisFilter(hue_name)
+    
+  def set_used(self,x_used:bool,y_used:bool,hue_used:bool):
+    self.on_x.used = x_used
+    self.on_y.used = y_used
+    self.on_hue.used = hue_used
+    
+  def get_used(self):
+    used = []
+    if self.on_x.used:
+      used.append(self.on_x.axe)
+    if self.on_y.used:
+      used.append(self.on_y.axe)
+    if self.on_hue.used:
+      used.append(self.on_hue.axe)
+    return used
+  
+  def get_subtitle(self):
+    title = "{"
+    used = self.get_used()
+    for key, val in self.defaults.items():        
+      if key not in used:
+        title+=f"{key}:{val} ,"
+    title = title[:-1] + '}'    
+    return title
 class Experiment:
   source_csv = None
   inner_df = None
   cache_name = ""
   actions = ""
-  y_name = "repetitions_duration"
   
   def __init__(self, source_csv_path, actions="be", bootstrap_confidence=0.9, entropy_batch_size=2, entropy_linear_size=25,cache=True):
     self.source_csv = source_csv_path
@@ -132,34 +170,29 @@ class Experiment:
       self.actions += "e"
 
   
-  def filter(self,exp_filter:Filter,explode_y:bool=True):
+  def filter(self,exp_filter:Filter):
     temp_df = self.inner_df.copy()
-    if exp_filter.blocking is not None:
-      if "blocking" in temp_df.columns:
-        temp_df = temp_df[temp_df["blocking"]==exp_filter.blocking]
-    if exp_filter.flush_l2 is not None:
-      if "flush_l2" in temp_df.columns:
-        temp_df = temp_df[temp_df["flush_l2"]==exp_filter.flush_l2]
-    if exp_filter.work_size is not None:
-      if "work_size" in temp_df.columns:
-        temp_df = temp_df[temp_df["work_size"]==exp_filter.work_size]
-    if exp_filter.warmups is not None:
-      temp_df = temp_df[temp_df["warmups"]==exp_filter.warmups]
-    if exp_filter.repetitions is not None:
-      temp_df = temp_df[temp_df["repetitions"]==exp_filter.repetitions]
-    if exp_filter.versions is not None:
-      if not isinstance(exp_filter.versions,list):
-        exp_filter.versions = [exp_filter.versions]
-      temp_df = temp_df[temp_df["version"].isin(exp_filter.versions)]
-    if exp_filter.kernels is not None:
-      if not isinstance(exp_filter.kernels,list):
-        exp_filter.kernels = [exp_filter.kernels]
-      temp_df = temp_df[temp_df["kernel"].isin(exp_filter.kernels)]
-    if exp_filter.unique is not None:
-      temp_df = temp_df.drop_duplicates(subset=exp_filter.unique, keep="first")
-    if explode_y:
-      temp_df = temp_df.explode(self.y_name)
-    return temp_df
+    columns = temp_df.columns
+    used = exp_filter.get_used()
+    duplicates = []
+    for key, val in exp_filter.defaults.items():        
+      if key in columns and key not in used:
+        if isinstance(val,list):
+          temp_df = temp_df[temp_df[key].isin(val)]
+        else:
+          temp_df = temp_df[temp_df[key]==val]
+        duplicates.append(key)
+    duplicates_used = []
+    for item in used:
+      if item not in columns:
+        raise ValueError("column on the axis are not in the dataframe")
+      if hashable(temp_df[item].iloc[0]):
+        duplicates_used.append(item)
+    duplicates.extend(duplicates_used)
+    df_unique = temp_df.drop_duplicates(subset=duplicates,keep="first")
+    if exp_filter.on_y.explode and exp_filter.on_y.used:
+      df_unique = df_unique.explode(exp_filter.on_y.axe)
+    return df_unique
 
 
 class Bootstraping:
