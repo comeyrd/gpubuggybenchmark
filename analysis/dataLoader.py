@@ -8,6 +8,10 @@ import scipy.stats as scistats
 from tqdm import tqdm
 import scipy.stats as scistats
 
+def _check_nonempty(df: pd.DataFrame, key: str):
+    if df.empty:
+        raise ValueError(f"Filtering on '{key}' produced an empty dataframe.")
+      
 def hashable(item):
   try:
     hash(item)
@@ -47,7 +51,7 @@ class axisFilter:
   axe:str
   used:bool
   explode:bool
-  def __init__(self,axe_:str,used_:bool=False,explode_:bool=False):
+  def __init__(self,axe_:str="",used_:bool=True,explode_:bool=False):
     self.axe = axe_
     self.used = used_
     self.explode = explode_
@@ -55,12 +59,13 @@ class axisFilter:
 DEFAULT_INPUTS = ["repetitions","warmups","work_size","flush_l2","blocking","kernel","version"]
 class Filter:
   defaults:dict
-  on_x:axisFilter
-  on_y:axisFilter
-  on_hue:axisFilter
-  
+  on_x:axisFilter = axisFilter()
+  on_y:axisFilter = axisFilter()
+  on_hue:axisFilter = axisFilter()
+  subsets:dict
   def __init__(self,df):
     self.defaults = {}
+    self.subsets = {}
     for def_input in DEFAULT_INPUTS:
       if def_input in df.columns : 
         values_l = df[def_input].unique()
@@ -69,16 +74,21 @@ class Filter:
   def set_default(self,key,val):
     self.defaults[key] = val
 
+  def set_subsets(self,key,val):
+    self.subsets[key] = val
   def set_axis(self,x_name:str,y_name:str,hue_name:str,explode_y:bool=True):
-    self.on_x = axisFilter(x_name)
-    self.on_y = axisFilter(y_name,explode_=explode_y)
-    self.on_hue = axisFilter(hue_name)
     
-  def set_used(self,x_used:bool,y_used:bool,hue_used:bool):
+    self.on_x = axisFilter(x_name,self.on_x.used)
+    self.on_y = axisFilter(y_name,self.on_y.used,explode_=explode_y)
+    self.on_hue = axisFilter(hue_name,self.on_hue.used)
+    
+  def set_axes_used(self,x_used:bool,y_used:bool):
     self.on_x.used = x_used
     self.on_y.used = y_used
-    self.on_hue.used = hue_used
     
+  def set_hue_used(self,hue_used:bool):
+    self.on_hue.used = hue_used
+
   def get_used(self):
     used = []
     if self.on_x.used:
@@ -86,7 +96,8 @@ class Filter:
     if self.on_y.used:
       used.append(self.on_y.axe)
     if self.on_hue.used:
-      used.append(self.on_hue.axe)
+      if self.on_hue.axe is not None:
+        used.append(self.on_hue.axe)
     return used
   
   def get_subtitle(self):
@@ -129,20 +140,20 @@ class Experiment:
         lambda x: [] if np.array_equal(np.asarray(x), np.array([0.0])) else x)
 
 ## Adds the folowing rows to the Experiment dataframe :
-# ci_low, ci_high, ci_level, boostrap_data, std_error
+# ci_low, ci_high, ci_level, bootstrap_data, std_error
   def do_bootstrap(self, confidence=0.9):
     if "b" not in self.actions:
       self.inner_df['ci_low'] = None
       self.inner_df['ci_high'] = None
       self.inner_df['ci_level'] = confidence
-      self.inner_df['boostrap_data'] = None
+      self.inner_df['bootstrap_data'] = None
       self.inner_df['std_error'] = None
       for idx in tqdm(self.inner_df.index):
           conf, data, std = Bootstraping.standard_deviation(
               self.inner_df.loc[idx]["repetitions_duration"], confidence)
           self.inner_df.at[idx, 'ci_low'] = conf.low
           self.inner_df.at[idx, 'ci_high'] = conf.high
-          self.inner_df.at[idx, 'boostrap_data'] = data
+          self.inner_df.at[idx, 'bootstrap_data'] = data
           self.inner_df.at[idx, 'std_error'] = std
       self.actions += "b"
 
@@ -181,11 +192,19 @@ class Experiment:
           temp_df = temp_df[temp_df[key].isin(val)]
         else:
           temp_df = temp_df[temp_df[key]==val]
+        _check_nonempty(temp_df,key)
         duplicates.append(key)
     duplicates_used = []
+    for key_sub, val_sub in exp_filter.subsets.items():
+      if key_sub in columns :
+        if not isinstance(val_sub,list):
+          raise ValueError("Subset that is not a list")
+        else:
+          temp_df = temp_df[temp_df[key_sub].isin(val_sub)]
+          _check_nonempty(temp_df,key_sub)
     for item in used:
       if item not in columns:
-        raise ValueError("column on the axis are not in the dataframe")
+        raise ValueError("column on the axis are not in the dataframe :"+item)
       if hashable(temp_df[item].iloc[0]):
         duplicates_used.append(item)
     duplicates.extend(duplicates_used)

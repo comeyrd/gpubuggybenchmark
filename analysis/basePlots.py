@@ -10,12 +10,12 @@ def wrap_title(title, width=25):
     return "\n".join(textwrap.wrap(title, width))
 
 def subtitle(_filter):
-    plt.text(0.5, 1.01, wrap_title(_filter.get_subtitle(),100), ha='center', va='bottom', transform=plt.gca().transAxes, fontsize=8)
+    plt.text(0.5, 1.01, wrap_title(_filter.get_subtitle(),60), ha='center', va='bottom', transform=plt.gca().transAxes, fontsize=8)
 
 
 ## Filter : set hue_name and y_name
 def compare_cdf(exp:Experiment,_filter:Filter):
-    _filter.set_used(False,True,True)
+    _filter.set_axes_used(False,True)
     df = exp.filter(_filter)
     hue_ = df[_filter.on_hue.axe].unique()
     colors = sns.color_palette("tab10", n_colors=len(hue_))
@@ -26,15 +26,17 @@ def compare_cdf(exp:Experiment,_filter:Filter):
         plt.plot(sorted_data, cdf, marker=None, color=colors[i],label=u_hue)
     plt.xlabel(_filter.on_y.axe)
     plt.ylabel('CDF')
-    plt.title(f'Empirical CDF of {_filter.on_y.axe}, comparing {_filter.on_hue.axe}',y=1.05)
+    title = f'Empirical CDF of {_filter.on_y.axe}'
+    title +=f', comparing {_filter.on_hue.axe}'
+    plt.title(title,y=1.07)
     subtitle(_filter)
-    plt.legend()
+    if _filter.on_hue.used : 
+      plt.legend()
     plt.grid(True)
-    plt.show()
 
 ## Filter : set hue_name and y_name
 def compare_densities(exp:Experiment,_filter:Filter,title=""):
-    _filter.set_used(False,True,True)
+    _filter.set_axes_used(False,True)
     df = exp.filter(_filter)
     palette = sns.color_palette("tab20", n_colors=df[_filter.on_hue.axe].nunique())
     sns.kdeplot(
@@ -49,22 +51,30 @@ def compare_densities(exp:Experiment,_filter:Filter,title=""):
         bw_method="silverman",
         bw_adjust=0.5
     )
-    plt.title(wrap_title(title+f"comparing {_filter.on_hue.axe}",35),y=1.05)
+    title += f"Density function of {_filter.on_y.axe}"
+    if _filter.on_hue.used:
+        title+=f", comparing {_filter.on_hue.axe}"
+    plt.title(wrap_title(title,35),y=1.07)
+    plt.ylabel("Density")
+    plt.xlabel(_filter.on_y.axe)
     subtitle(_filter)
 
 # set x, y and hue
 def compare_boxplots(exp:Experiment,_filter:Filter):
-    _filter.set_used(True,True,True)
+    _filter.set_axes_used(True,True)
     df = exp.filter(_filter)
     palette = sns.color_palette("tab20", n_colors=df[_filter.on_hue.axe].nunique())
     sns.boxplot(df, x=_filter.on_x.axe,y=_filter.on_y.axe,hue=_filter.on_hue.axe,palette=palette,fill=False)
-    plt.title(f"Benchmarking of repetition, comparing {_filter.on_x.axe}",y=1.05)
+    title = f"Benchmarking of {_filter.on_x.axe}"
+    if _filter.on_hue.used:
+        title+=f", comparing {_filter.on_hue.axe}"
+    plt.title(title,y=1.07)
     subtitle(_filter)
     plt.xlabel(_filter.on_x.axe)
-    plt.ylabel("Duration of a kernel (ms)")
+    plt.ylabel(_filter.on_y.axe)
    
 def line_plot(exp:Experiment,_filter:Filter):
-    _filter.set_used(True,True,True)
+    _filter.set_axes_used(True,True)
     df = exp.filter(_filter)
     hue_ = df[_filter.on_hue.axe].unique()
     colors = sns.color_palette("tab10", n_colors=len(hue_))
@@ -73,11 +83,14 @@ def line_plot(exp:Experiment,_filter:Filter):
         plt.plot(temp_df[_filter.on_x.axe], temp_df[_filter.on_y.axe], marker='o', color=colors[i],label=u_hue)
     plt.xlabel(_filter.on_x.axe)
     plt.ylabel(_filter.on_y.axe)
-    plt.title(f'Evolution of {_filter.on_y.axe}, comparing {_filter.on_hue.axe}',y=1.05)
+    title = f'Evolution of {_filter.on_y.axe}'
+    if _filter.on_hue.used:
+        title+=f", comparing {_filter.on_hue.axe}"
+    plt.title(title,y=1.07)
     subtitle(_filter)
-    plt.legend()
+    if _filter.on_hue.used : 
+      plt.legend()
     plt.grid(True)
-    plt.show()
 
 ####
 #
@@ -102,7 +115,7 @@ def interval_plot(ix,high,low,horizontal_line_width=0.25,color='#2187bb',stable=
 # set x and hue, comparing the std of the std against the measure precision, Y is ci_high and ci_low
 def compare_std_std_precision(exp:Experiment,_filter:Filter,precision=0.0005):
     x_lbls = ['Precision']
-    _filter.set_used(True,False,True)
+    _filter.set_axes_used(True,False)
     df = exp.filter(_filter)
     rep_arr = df[_filter.on_x.axe].unique()
     x_lbls.extend(rep_arr)
@@ -123,10 +136,17 @@ def compare_std_std_precision(exp:Experiment,_filter:Filter,precision=0.0005):
             if (temp_sq.iloc[0].ci_high - temp_sq.iloc[0].ci_low) <=precision:
                 stable_ = True
             interval_plot(j+1,temp_sq.iloc[0].ci_high, temp_sq.iloc[0].ci_low,color=colors[i],stable=stable_)  
-    plt.title(wrap_title(f"Measure precision vs 90% confidence interval of the standard deviation, comparing {_filter.on_hue.axe}",40),y=1.05)
+    title = "Measure precision vs 90% confidence interval of the standard deviation"
+    if _filter.on_hue.used : 
+        title += f", comparing {_filter.on_hue.axe}"
+    plt.title(wrap_title(title,40),y=1.07)
     subtitle(_filter)
     legend_elements = [Line2D([0], [0], color=colors[i], lw=2, label=hue_[i]) for i in range(len(hue_))]
-    plt.legend(handles=legend_elements)
+    plt.xlabel(_filter.on_x.axe)
+    plt.ylabel("Confidence Interval")
+    if _filter.on_hue.used : 
+      plt.legend(handles=legend_elements)
+    
     
     
     
@@ -152,7 +172,7 @@ def compare_entropy_types(exp:Experiment,_filter:Filter):
     if _filter.on_y.axe not in ["entropy","slope","r2"] :
         raise ValueError('Filter on Y axis is not properly set, set to either "entropy","slope","r2"')
     _filter.on_y.explode = False
-    _filter.set_used(False,True,True)
+    _filter.set_axes_used(False,True)
     df = exp.filter(_filter)
     batch_entropy = df.batch_entropy.unique()[0]
     batch_linear = df.batch_linear.unique()[0]
@@ -182,6 +202,12 @@ def compare_entropy_types(exp:Experiment,_filter:Filter):
         y_points = np.array(y)[true_indexes]
         line_plot_interest_points(x,y,x_points,y_points,colors[i])
     legend_elements = [Line2D([0], [0], color=colors[i], lw=2, label=hue_[i]) for i in range(len(hue_))]
-    plt.title(wrap_title(f"Evolution of {_filter.on_y.axe}, comparing {_filter.on_hue.axe}",40),y=1.05)
+    title = f'Evolution of {_filter.on_y.axe}'
+    if _filter.on_hue.used:
+        title+=f", comparing {_filter.on_hue.axe}"
+    plt.title(title,y=1.07)
+    plt.xlabel(_filter.on_x.axe)
+    plt.ylabel(_filter.on_y.axe)
     subtitle(_filter)
-    plt.legend(handles=legend_elements)
+    if _filter.on_hue.used : 
+      plt.legend(handles=legend_elements)
