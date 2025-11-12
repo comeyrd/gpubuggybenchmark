@@ -7,6 +7,7 @@ import numpy as np
 import scipy.stats as scistats
 from tqdm import tqdm
 import scipy.stats as scistats
+from typing import Self
 
 def _check_nonempty(df: pd.DataFrame, key: str):
     if df.empty:
@@ -41,6 +42,13 @@ class PickleWrapper:
       file_name = os.path.splitext(os.path.basename(path))[0]
       path = f"temp/{file_name}-{attributes}.pickle"
       return path
+  @staticmethod
+  def getCachedComparisonName(path1,path2,attributes):
+      file_name1 = os.path.splitext(os.path.basename(path1))[0]
+      file_name2 = os.path.splitext(os.path.basename(path2))[0]
+      names = sorted([file_name1,file_name2])
+      path = f"temp/{names[0]}-{names[1]}-{attributes}.pickle"
+      return path
   def exists(pickle_path):
     return os.path.exists(pickle_path)
 
@@ -51,18 +59,26 @@ class axisFilter:
   axe:str
   used:bool
   explode:bool
-  def __init__(self,axe_:str="",used_:bool=True,explode_:bool=False):
+  def __init__(self,axe_:str="",used_:bool=False,explode_:bool=False):
     self.axe = axe_
     self.used = used_
     self.explode = explode_
+  def copy(self):
+    """Create a deep copy of this axisFilter."""
+    return axisFilter(self.axe, self.used, self.explode)
+  def __str__(self):
+    return f'{{axe : {self.axe}, used : {self.used}, exp : {self.explode}}}'
 
-DEFAULT_INPUTS = ["repetitions","warmups","work_size","flush_l2","blocking","kernel","version"]
+DEFAULT_INPUTS = ["repetitions","warmups","work_size","flush_l2","blocking","kernel","version","exp"]
 class Filter:
   defaults:dict
   on_x:axisFilter = axisFilter()
   on_y:axisFilter = axisFilter()
   on_hue:axisFilter = axisFilter()
+  on_subplot:axisFilter = axisFilter()
   subsets:dict
+  def __str__(self):
+    return f"{{defaults:{vars(self.defaults)}, on_x:{self.on_x}, on_y:{self.on_y}, on_hue:{self.on_hue}, on_subplot:{self.on_subplot}, subsets:{vars(self.subsets)}}}"
   def __init__(self,df):
     self.defaults = {}
     self.subsets = {}
@@ -70,25 +86,63 @@ class Filter:
       if def_input in df.columns : 
         values_l = df[def_input].unique()
         self.defaults[def_input] = values_l[len(values_l)//2]
-      
+  @classmethod
+  def empty(cls):
+      """Create an empty Filter without requiring a dataframe."""
+      instance = object.__new__(cls)
+      instance.defaults = {}
+      instance.subsets = {}
+      instance.on_x = axisFilter()
+      instance.on_y = axisFilter()
+      instance.on_hue = axisFilter()
+      instance.on_subplot = axisFilter()
+      return instance
+  
+  def copy(self):
+    """Create a deep copy of this Filter."""
+    new_filter = Filter.empty()
+    new_filter.defaults = self.defaults.copy()
+    new_filter.subsets = self.subsets.copy()
+    new_filter.on_x = self.on_x.copy()
+    new_filter.on_y = self.on_y.copy()
+    new_filter.on_hue = self.on_hue.copy()
+    new_filter.on_subplot = self.on_subplot.copy()
+    return new_filter
+    
   def set_default(self,key,val):
     self.defaults[key] = val
 
   def set_subsets(self,key,val):
     self.subsets[key] = val
-  def set_axis(self,x_name:str,y_name:str,hue_name:str,explode_y:bool=True):
     
-    self.on_x = axisFilter(x_name,self.on_x.used)
-    self.on_y = axisFilter(y_name,self.on_y.used,explode_=explode_y)
-    self.on_hue = axisFilter(hue_name,self.on_hue.used)
-    
-  def set_axes_used(self,x_used:bool,y_used:bool):
-    self.on_x.used = x_used
-    self.on_y.used = y_used
-    
-  def set_hue_used(self,hue_used:bool):
-    self.on_hue.used = hue_used
+  def set_x(self,name:str=None,used:bool=None):
+    if name is not None:
+      self.on_x.axe = name
+    if used is not None:
+      self.on_x.used = used
 
+  def set_y(self,name:str=None,used:bool=None,explode:bool=None):
+    if name is not None:
+      self.on_y.axe = name
+    if used is not None:
+      self.on_y.used = used
+    if explode is not None:
+      self.on_y.explode = explode
+
+  def set_hue(self,name:str=None,used:bool=None,explode:bool=None):
+    if name is not None:
+      self.on_hue.axe = name
+    if used is not None:
+      self.on_hue.used = used
+    if explode is not None:
+      self.on_hue.explode = explode
+      
+  def set_subplot(self,name:str=None,used:bool=None):
+    if name is not None:
+      self.on_subplot.axe = name
+    if used is not None:
+      self.on_subplot.used = used
+      
   def get_used(self):
     used = []
     if self.on_x.used:
@@ -98,6 +152,9 @@ class Filter:
     if self.on_hue.used:
       if self.on_hue.axe is not None:
         used.append(self.on_hue.axe)
+    if self.on_subplot.used:
+      if self.on_subplot.axe is not None:
+        used.append(self.on_subplot.axe)
     return used
   
   def get_subtitle(self):
@@ -119,6 +176,7 @@ class Experiment:
     self.cache_name = PickleWrapper.getCachedName(self.source_csv,actions)
     if PickleWrapper.exists(self.cache_name):
       self.inner_df = PickleWrapper.load(self.cache_name)
+      self.actions = actions
     else:
       self.loadDataframe()
       if 'b' in actions:
@@ -128,7 +186,19 @@ class Experiment:
       if cache:
         self.cache_name = PickleWrapper.getCachedName(self.source_csv,self.actions)
         PickleWrapper.save(self.cache_name,self.inner_df)
-
+  @classmethod
+  def from_dataframe(cls,dataframe,actions,cache_name):
+    instance = cls.__new__(cls)  # Create instance without calling __init__
+    instance.source_csv = ""
+    instance.inner_df = dataframe.copy()  # or just dataframe if you don't need a copy
+    instance.actions = actions
+    instance.cache_name = cache_name
+    
+    if not PickleWrapper.exists(instance.cache_name):
+        PickleWrapper.save(instance.cache_name, instance.inner_df)
+    
+    return instance
+    
   
   def loadDataframe(self):
     self.inner_df = pd.read_csv(self.source_csv)
@@ -213,6 +283,16 @@ class Experiment:
       df_unique = df_unique.explode(exp_filter.on_y.axe)
     return df_unique
 
+  @classmethod
+  def compare_experiments(cls,exp1:Self,exp2:Self)->Self:
+    if set(exp1.actions) != set(exp2.actions):
+      raise ValueError(f"The experiments do not share the same actions : {exp1.actions} - {exp2.actions}")
+    cache_name = PickleWrapper.getCachedComparisonName(exp1.source_csv,exp2.source_csv,exp1.actions)
+    newdf = pd.concat([
+        exp1.inner_df.assign(exp=os.path.splitext(os.path.basename(exp1.source_csv))[0]),
+        exp2.inner_df.assign(exp=os.path.splitext(os.path.basename(exp2.source_csv))[0])
+    ], ignore_index=True)
+    return cls.from_dataframe(newdf,exp1.actions,cache_name)
 
 class Bootstraping:
   @staticmethod
