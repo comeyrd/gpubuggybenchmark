@@ -43,12 +43,14 @@ class PickleWrapper:
       path = f"temp/{file_name}-{attributes}.pickle"
       return path
   @staticmethod
-  def getCachedComparisonName(path1,path2,attributes):
-      file_name1 = os.path.splitext(os.path.basename(path1))[0]
-      file_name2 = os.path.splitext(os.path.basename(path2))[0]
-      names = sorted([file_name1,file_name2])
-      path = f"temp/{names[0]}-{names[1]}-{attributes}.pickle"
-      return path
+  def getCachedComparisonName(*paths, attributes):
+    if len(paths) < 2:
+        raise ValueError("Need at least 2 paths to compare")
+    file_names = [os.path.splitext(os.path.basename(path))[0] for path in paths]
+    file_names_sorted = sorted(file_names)
+    names_str = "-".join(file_names_sorted)
+    path = f"temp/{names_str}-{attributes}.pickle"
+    return path
   def exists(pickle_path):
     return os.path.exists(pickle_path)
 
@@ -284,15 +286,24 @@ class Experiment:
     return df_unique
 
   @classmethod
-  def compare_experiments(cls,exp1:Self,exp2:Self)->Self:
-    if set(exp1.actions) != set(exp2.actions):
-      raise ValueError(f"The experiments do not share the same actions : {exp1.actions} - {exp2.actions}")
-    cache_name = PickleWrapper.getCachedComparisonName(exp1.source_csv,exp2.source_csv,exp1.actions)
-    newdf = pd.concat([
-        exp1.inner_df.assign(exp=os.path.splitext(os.path.basename(exp1.source_csv))[0]),
-        exp2.inner_df.assign(exp=os.path.splitext(os.path.basename(exp2.source_csv))[0])
-    ], ignore_index=True)
-    return cls.from_dataframe(newdf,exp1.actions,cache_name)
+  def compare_experiments(cls, *experiments: Self) -> Self:
+      if len(experiments) < 2:
+        raise ValueError("Need at least 2 experiments to compare")
+      first_actions = experiments[0].actions
+      for exp in experiments[1:]:
+        if exp.actions != first_actions:
+          raise ValueError(
+            f"All experiments must share the same actions. "
+            f"Found: {[exp.actions for exp in experiments]}"
+            )
+      csv_names = [exp.source_csv for exp in experiments]
+      cache_name = PickleWrapper.getCachedComparisonName(*csv_names, attributes=experiments[0].actions)
+      dfs_to_concat = [
+        exp.inner_df.assign(exp=os.path.splitext(os.path.basename(exp.source_csv))[0])
+        for exp in experiments
+      ]
+      newdf = pd.concat(dfs_to_concat, ignore_index=True)
+      return cls.from_dataframe(newdf, experiments[0].actions, cache_name)
 
 class Bootstraping:
   @staticmethod
