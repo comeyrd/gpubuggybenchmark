@@ -1,8 +1,7 @@
-#include "bilateral-reference.hpp"
-#include "hip-utils.hpp"
+#include "bilateral-co.hpp"
 #include "gpu-utils.hpp"
-
-
+#include "hip-utils.hpp"
+//Costly way of doing a computation
 template<int R>
 __global__ void bilateralFilter(
     const float *__restrict__ in,
@@ -50,7 +49,7 @@ __global__ void bilateralFilter(
 
       // the weight is assigned using the spatial closeness (using the spatial kernel) 
       // and the intensity difference (using the range kernel)
-      float weight = a_square * expf(spatial + range);
+      float weight = a_square * expf(spatial) + expf(range);//BUG
 
       normalization += weight;
       res += (I_w * weight);
@@ -58,8 +57,7 @@ __global__ void bilateralFilter(
   }
   out[id] = res/normalization;
 }
-
-void ReferenceBilateral::setup() {
+void COBilateral::setup() {
   CHECK_HIP(hipMalloc((void **)&d_dst, m_data->b_size));
   CHECK_HIP(hipMalloc((void **)&d_src, m_data->b_size));
   CHECK_HIP(hipMemcpy(d_src, m_data->image, m_data->b_size, hipMemcpyHostToDevice));
@@ -67,14 +65,13 @@ void ReferenceBilateral::setup() {
   blocks = dim3((m_data->width + 15) / 16, (m_data->height + 15) / 16);
 }
 
-void ReferenceBilateral::run(stream_t* s) {
+void COBilateral::run(stream_t* s) {
     bilateralFilter<4><<<blocks, threads, 0, s->native>>>(d_src, d_dst, m_data->width, m_data->height, m_data->a_square, m_data->variance_I, m_data->variance_spatial);
 };
 
-void ReferenceBilateral::teardown(BilateralData &_result) {
+void COBilateral::teardown(BilateralData &_result) {
   CHECK_HIP(hipMemcpy(_result.image, d_dst, m_data->b_size, hipMemcpyDeviceToHost)); 
   hipFree(d_dst);
   hipFree(d_src);
 };
-
-REGISTER_CLASS(IBilateral, ReferenceBilateral);
+REGISTER_CLASS(IBilateral,COBilateral);

@@ -1,7 +1,6 @@
 #ifndef REFERENCE_BILATERAL_H
 #define REFERENCE_BILATERAL_H
 #include "bilateral.hpp"
-#include "cuda-utils.hpp"
 class ReferenceBilateral : public IBilateral {
 public:
     void setup() override;

@@ -1,8 +1,7 @@
-#include "bilateral-reference.hpp"
-#include "hip-utils.hpp"
+#include "bilateral-dg.hpp"
 #include "gpu-utils.hpp"
-
-
+#include "hip-utils.hpp"
+//Too much global memory access
 template<int R>
 __global__ void bilateralFilter(
     const float *__restrict__ in,
@@ -19,7 +18,6 @@ __global__ void bilateralFilter(
   if(idx >= w || idy >= h) return;
 
   int id = idy*w + idx;
-  float I = in[id];
   float res = 0;
   float normalization = 0;
 
@@ -39,10 +37,9 @@ __global__ void bilateralFilter(
       if( idl > h - 1) idl = h - 1 - j;
 
       int id_w = idl*w + idk;
-      float I_w = in[id_w];
 
       // range kernel for smoothing differences in intensities
-      float range = -(I-I_w) * (I-I_w) / (2.f * variance_I);
+      float range = -(in[id]-in[id_w]) * (in[id]-in[id_w]) / (2.f * variance_I);//BUG
 
       // spatial (or domain) kernel for smoothing differences in coordinates
       float spatial = -((idk-idx)*(idk-idx) + (idl-idy)*(idl-idy)) /
@@ -53,13 +50,12 @@ __global__ void bilateralFilter(
       float weight = a_square * expf(spatial + range);
 
       normalization += weight;
-      res += (I_w * weight);
+      res += (in[id_w] * weight);
     }
   }
   out[id] = res/normalization;
 }
-
-void ReferenceBilateral::setup() {
+void DGBilateral::setup() {
   CHECK_HIP(hipMalloc((void **)&d_dst, m_data->b_size));
   CHECK_HIP(hipMalloc((void **)&d_src, m_data->b_size));
   CHECK_HIP(hipMemcpy(d_src, m_data->image, m_data->b_size, hipMemcpyHostToDevice));
@@ -67,14 +63,13 @@ void ReferenceBilateral::setup() {
   blocks = dim3((m_data->width + 15) / 16, (m_data->height + 15) / 16);
 }
 
-void ReferenceBilateral::run(stream_t* s) {
+void DGBilateral::run(stream_t* s) {
     bilateralFilter<4><<<blocks, threads, 0, s->native>>>(d_src, d_dst, m_data->width, m_data->height, m_data->a_square, m_data->variance_I, m_data->variance_spatial);
 };
 
-void ReferenceBilateral::teardown(BilateralData &_result) {
+void DGBilateral::teardown(BilateralData &_result) {
   CHECK_HIP(hipMemcpy(_result.image, d_dst, m_data->b_size, hipMemcpyDeviceToHost)); 
   hipFree(d_dst);
   hipFree(d_src);
 };
-
-REGISTER_CLASS(IBilateral, ReferenceBilateral);
+REGISTER_CLASS(IBilateral,DGBilateral);
