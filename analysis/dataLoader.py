@@ -73,14 +73,14 @@ class axisFilter:
 
 DEFAULT_INPUTS = ["repetitions","warmups","work_size","flush_l2","blocking","kernel","version","exp"]
 class Filter:
-  defaults:dict
+  defaults:dict = {}
   on_x:axisFilter = axisFilter()
   on_y:axisFilter = axisFilter()
   on_hue:axisFilter = axisFilter()
   on_subplot:axisFilter = axisFilter()
-  subsets:dict
+  subsets:dict = {}
   def __str__(self):
-    return f"{{defaults:{vars(self.defaults)}, on_x:{self.on_x}, on_y:{self.on_y}, on_hue:{self.on_hue}, on_subplot:{self.on_subplot}, subsets:{vars(self.subsets)}}}"
+    return f"{{defaults:{self.defaults}, on_x:{self.on_x}, on_y:{self.on_y}, on_hue:{self.on_hue}, on_subplot:{self.on_subplot}, subsets:{self.subsets}}}"
   def __init__(self,df):
     self.defaults = {}
     self.subsets = {}

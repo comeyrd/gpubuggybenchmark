@@ -38,8 +38,8 @@ void IKernel<Data, Result>::run(int argc, char **argv) {
     int repetitions = kernel_parser.get<int>("--repetitions");
     int warmups = kernel_parser.get<int>("--warmup");
     int work_size = kernel_parser.get<int>("--work-size");
-    bool flush_l2 = (kernel_parser.get<int>("--blocking-kernel") == 1);
-    bool blocking_kernel = (kernel_parser.get<int>("--flush-l2-cache") == 1);
+    bool flush_l2 = (kernel_parser.get<int>("--flush-l2-cache") == 1);
+    bool blocking_kernel = (kernel_parser.get<int>("--blocking-kernel") == 1);
     bool versions_set = kernel_parser.is_used("-cv");
     m_csv_path = kernel_parser.get<std::string>("--csv-path");
     int device = kernel_parser.get<int>("--device");
@@ -94,6 +94,7 @@ KernelStats IKernel<Data, Result>::run_impl(
         if (config.m_flush_l2) {
             flusher.flush(stream.get_stream());
         }
+        version_impl->reset();
         stream.synchronize();
         if (config.m_blocking) {
             blocker.block(stream.get_stream(), 10);
@@ -157,7 +158,7 @@ std::vector<std::string> IKernel<Data, Result>::list_version() {
 template <typename Data, typename Result>
 void IKernel<Data, Result>::run_benchmark(class_umap<IVersion<Data, Result>> versions) {
     std::vector<int> warmups = {5};
-    std::vector<int> repetitions = {10, 50, 125, 250, 375, 500, 750, 1000,1500};
+    std::vector<int> repetitions = {10, 50, 125, 250, 375, 400, 500, 750, 1000,1500};
     std::vector<bool> blocking = {true, false};
     std::vector<bool> flush_l2 = {true, false};
     std::vector<int> work_size = {1, 2, 4};

@@ -41,50 +41,31 @@ void accuracy_ml_kernel(const int N, const int D, const int top_k, const float* 
     atomicAdd(accuracy, count);
   }
 }
+void MLAccuracy::setup(){
+  CHECK_CUDA(cudaMalloc((void**)&d_label, m_data->label_sz_bytes));
+  CHECK_CUDA(cudaMemcpy(d_label, m_data->label, m_data->label_sz_bytes, cudaMemcpyHostToDevice));
 
-KernelStats MLAccuracy::run(const AccuracyData &data, const AccuracySettings &settings, AccuracyResult &result) const{
-    CudaProfiling prof(settings);
+  CHECK_CUDA(cudaMalloc((void**)&d_data, m_data->data_sz_bytes));
+  CHECK_CUDA(cudaMemcpy(d_data, m_data->data, m_data->data_sz_bytes, cudaMemcpyHostToDevice));
 
-    prof.begin_mem2D();
-    int *d_label;
-    CHECK_CUDA(cudaMalloc((void**)&d_label, data.label_sz_bytes));
-    CHECK_CUDA(cudaMemcpy(d_label, data.label, data.label_sz_bytes, cudaMemcpyHostToDevice));
+  CHECK_CUDA(cudaMalloc((void**)&d_count, sizeof(int)));
+  block = dim3(GPU_NUM_THREADS);
+  int grid_sz = (m_data->n_rows + GPU_NUM_THREADS - 1) / GPU_NUM_THREADS;
+  grid = dim3(grid_sz);
+}
 
-    float *d_data;
-    CHECK_CUDA(cudaMalloc((void**)&d_data, data.data_sz_bytes));
-    CHECK_CUDA(cudaMemcpy(d_data, data.data, data.label_sz_bytes, cudaMemcpyHostToDevice));
+void MLAccuracy::reset(){
+  CHECK_CUDA(cudaMemset(d_count, 0, sizeof(int)));
+}
+void MLAccuracy::run(stream_t* s){
+  accuracy_ml_kernel<<<grid, block,0, s->native>>>(m_data->n_rows, m_data->ndims, m_data->topk, d_data, d_label, d_count);
+}
 
-    int *d_count;
-    CHECK_CUDA(cudaMalloc((void**)&d_count, sizeof(int)));
-
-    dim3 block (GPU_NUM_THREADS);
-
-    dim3 grid (settings.grid_sz);
-
-    
-    prof.end_mem2D();
-    for(int w = 0; w < settings.warmup ; w++){
-      prof.begin_warmup();
-      CHECK_CUDA(cudaMemset(d_count, 0, sizeof(int)));
-      accuracy_ml_kernel<<<grid, block>>>(data.n_rows, data.ndims, data.topk, d_data, d_label, d_count);
-      prof.end_warmup();
-    }
-    for(int r = 0 ; r < settings.repetitions ; r++){
-      prof.begin_repetition();
-      CHECK_CUDA(cudaMemset(d_count, 0, sizeof(int)));
-      accuracy_ml_kernel<<<grid, block>>>(data.n_rows, data.ndims, data.topk, d_data, d_label, d_count);
-      prof.end_repetition();
-    }
-
-    CHECK_CUDA(cudaDeviceSynchronize());
-    prof.begin_mem2H();
-    CHECK_CUDA(cudaMemcpy(&result.count, d_count, sizeof(int), cudaMemcpyDeviceToHost));
-    prof.end_mem2H();
-
-    //cudaFree(d_label);BUG
-    //cudaFree(d_data);BUG
-    //cudaFree(d_count);BUG
-    return prof.retreive();
-};
+void MLAccuracy::teardown(AccuracyResult &_result){
+  CHECK_CUDA(cudaMemcpy(&_result.count, d_count, sizeof(int), cudaMemcpyDeviceToHost));
+  //CHECK_CUDA(cudaFree(d_label));BUG
+  //CHECK_CUDA(cudaFree(d_data));BUG
+  //CHECK_CUDA(cudaFree(d_count));BUG
+}
 
 REGISTER_CLASS(IAccuracy,MLAccuracy);

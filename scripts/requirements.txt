@@ -1,3 +1,7 @@
 ipykernel
 pandas
 matplotlib
+numpy
+seaborn
+scikit-learn
+tqdm

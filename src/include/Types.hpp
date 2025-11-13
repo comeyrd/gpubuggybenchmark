@@ -18,6 +18,7 @@ protected:
 
 struct IResult {
     virtual ~IResult() = default;
+    virtual void resize(int work_size) = 0;
 
 protected:
     explicit IResult(const int &work_size) {};

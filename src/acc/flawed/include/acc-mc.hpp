@@ -4,7 +4,16 @@
 
 class MCAccuracy : public IAccuracy {
 public:
-    KernelStats run(const AccuracyData &data, const AccuracySettings &settings, AccuracyResult &result) const override;
+    void setup() override;
+    void reset() override;
+    void run(stream_t* s) override;
+    void teardown(AccuracyResult &_result) override;
+private:
+    int *d_label;
+    float *d_data;
+    int *d_count;
+    dim3 block;
+    dim3 grid;
 };
 
 #endif

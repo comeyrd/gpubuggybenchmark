@@ -91,6 +91,7 @@ blocking_kernel::blocking_kernel() {
     CHECK_CUDA(cudaHostGetDevicePointer(&m_device_timeout_flag, &m_host_timeout_flag, 0));
 }
 blocking_kernel::~blocking_kernel() {
+    CHECK_CUDA(cudaGetLastError());
     CHECK_CUDA(cudaHostUnregister(&m_host_flag));
     CHECK_CUDA(cudaHostUnregister(&m_host_timeout_flag));
 }

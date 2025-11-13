@@ -6,7 +6,7 @@
 #include <cub/cub.cuh>
 #include "acc-dr.hpp"
 #include "cuda-utils.hpp"
-//Data Locality, using register memory for shared or global memory (register spilling)
+//Data Locality, using shared memory for global memory 
 //TODO FIX
 #define GPU_NUM_THREADS 256
 
@@ -16,80 +16,64 @@ __device__ void BlockReduce(T &input) {
   __shared__ typename BlockReduce::TempStorage temp_storage;
   input = BlockReduce(temp_storage).Sum(input);
 }
-
 __global__
 void accuracy_dr_kernel(const int N, const int D, const int top_k, const float* Xdata, const int* labelData, int* accuracy){
-  int count = 0;
-  float l_xdata[10000] ;
-  for (int i = threadIdx.x; i < D*N; i += blockDim.x) {
-    l_xdata[i] = Xdata[i];
-  }
+    extern __shared__ float s_row[];  // Shared memory for one row
+    int count = 0;
+    
+    for(int row = blockIdx.x; row < N; row += gridDim.x) {
+        // Load one row into shared memory
+        for (int col = threadIdx.x; col < D; col += blockDim.x) {
+            s_row[col] = Xdata[row * D + col];
+        }
+        __syncthreads();
+        
+        const int label = labelData[row];
+        const float label_pred = s_row[label];
+        int ngt = 0;
+        
+        for (int col = threadIdx.x; col < D; col += blockDim.x) {
+            const float pred = s_row[col];
+            if (pred > label_pred || (pred == label_pred && col <= label)) {
+                ++ngt;
+            }
+        }
+        BlockReduce(ngt);
+        if (threadIdx.x == 0 && ngt <= top_k) {
+            ++count;
+        }
+        __syncthreads();
+    }
+    BlockReduce(count);
+    if (threadIdx.x == 0) { 
+        atomicAdd(accuracy, count);
+    }
+}
+void DRAccuracy::setup(){
+  CHECK_CUDA(cudaMalloc((void**)&d_label, m_data->label_sz_bytes));
+  CHECK_CUDA(cudaMemcpy(d_label, m_data->label, m_data->label_sz_bytes, cudaMemcpyHostToDevice));
 
-  __syncthreads();
-  for(int row = blockIdx.x; row < N; row += gridDim.x) {
-    const int label = labelData[row];
-    const float label_pred = l_xdata[row * D + label];
-    int ngt = 0;
-    for (int col = threadIdx.x; col < D; col += blockDim.x) {
-      const float pred = l_xdata[row * D + col];
-      if (pred > label_pred || (pred == label_pred && col <= label)) {
-        ++ngt;
-      }
-    }
-    BlockReduce(ngt);
-    if (ngt <= top_k) {
-      ++count;
-    }
-    __syncthreads();
-  }
-  if (threadIdx.x == 0) { 
-    atomicAdd(accuracy, count);
-  }
+  CHECK_CUDA(cudaMalloc((void**)&d_data, m_data->data_sz_bytes));
+  CHECK_CUDA(cudaMemcpy(d_data, m_data->data, m_data->data_sz_bytes, cudaMemcpyHostToDevice));
+
+  CHECK_CUDA(cudaMalloc((void**)&d_count, sizeof(int)));
+  block = dim3(GPU_NUM_THREADS);
+  int grid_sz = (m_data->n_rows + GPU_NUM_THREADS - 1) / GPU_NUM_THREADS;
+  grid = dim3(grid_sz);
 }
 
-KernelStats DRAccuracy::run(const AccuracyData &data, const AccuracySettings &settings, AccuracyResult &result) const{
-    CudaProfiling prof(settings);
+void DRAccuracy::reset(){
+  CHECK_CUDA(cudaMemset(d_count, 0, sizeof(int)));
+}
+void DRAccuracy::run(stream_t* s){
+  accuracy_dr_kernel<<<grid, block,m_data->ndims*sizeof(float), s->native>>>(m_data->n_rows, m_data->ndims, m_data->topk, d_data, d_label, d_count);
+}
 
-    prof.begin_mem2D();
-    int *d_label;
-    CHECK_CUDA(cudaMalloc((void**)&d_label, data.label_sz_bytes));
-    CHECK_CUDA(cudaMemcpy(d_label, data.label, data.label_sz_bytes, cudaMemcpyHostToDevice));
-    
-    float *d_data;
-    CHECK_CUDA(cudaMalloc((void**)&d_data, data.data_sz_bytes));
-    CHECK_CUDA(cudaMemcpy(d_data, data.data, data.label_sz_bytes, cudaMemcpyHostToDevice));
+void DRAccuracy::teardown(AccuracyResult &_result){
+  CHECK_CUDA(cudaMemcpy(&_result.count, d_count, sizeof(int), cudaMemcpyDeviceToHost));
+  CHECK_CUDA(cudaFree(d_label));
+  CHECK_CUDA(cudaFree(d_data));
+  CHECK_CUDA(cudaFree(d_count));
+}
 
-    int *d_count;
-    CHECK_CUDA(cudaMalloc((void**)&d_count, sizeof(int)));
-
-    dim3 block (GPU_NUM_THREADS);
-
-    dim3 grid (settings.grid_sz);
-
-    
-    prof.end_mem2D();
-    for(int w = 0; w < settings.warmup ; w++){
-      prof.begin_warmup();
-      CHECK_CUDA(cudaMemset(d_count, 0, sizeof(int)));
-      accuracy_dr_kernel<<<grid, block>>>(data.n_rows, data.ndims, data.topk, d_data, d_label, d_count);
-      prof.end_warmup();
-    }
-    for(int r = 0 ; r < settings.repetitions ; r++){
-      prof.begin_repetition();
-      CHECK_CUDA(cudaMemset(d_count, 0, sizeof(int)));
-      accuracy_dr_kernel<<<grid, block>>>(data.n_rows, data.ndims, data.topk, d_data, d_label, d_count);
-      prof.end_repetition();
-    }
-
-    CHECK_CUDA(cudaDeviceSynchronize());
-    prof.begin_mem2H();
-    CHECK_CUDA(cudaMemcpy(&result.count, d_count, sizeof(int), cudaMemcpyDeviceToHost));
-    prof.end_mem2H();
-
-    CHECK_CUDA(cudaFree(d_label));
-    CHECK_CUDA(cudaFree(d_data));
-    CHECK_CUDA(cudaFree(d_count));
-    return prof.retreive();
-};
-
-//REGISTER_CLASS(IAccuracy,DRAccuracy);
+REGISTER_CLASS(IAccuracy,DRAccuracy);

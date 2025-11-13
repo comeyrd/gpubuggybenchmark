@@ -55,8 +55,8 @@ else()
         endif()
     endif()
 endif()
-#add_subdirectory(fpc)
-#add_subdirectory(acc)
+add_subdirectory(fpc)
+add_subdirectory(acc)
 add_subdirectory(bilateral)
 add_executable(gpubuggy main.cpp)
 
@@ -68,8 +68,7 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(argparse)
 
-set(KERNELS_TO_LINK bilateral)
-#set(KERNELS_TO_LINK accuracy bilateral fpc)
+set(KERNELS_TO_LINK accuracy bilateral fpc)
 
 find_package(OpenMP REQUIRED)
 

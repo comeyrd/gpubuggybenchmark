@@ -9,6 +9,7 @@ set(ACCURACY_DIR_TO_INCLUDE ${ACCURACY_DIR} ${ACCURACY_DIR}/flawed/include ${CMA
 
 if(BUILD_WITH_CUDA)
     file(GLOB FLAWED_CUDA "${ACCURACY_DIR}/*.cu" "${ACCURACY_DIR}/flawed/*.cu" "${ACCURACY_DIR}/cuda/*.cu" )
+
     add_library(accuracy STATIC ${ACCURACY_COMMON_SRC} ${FLAWED_CUDA})    
     set_target_properties(accuracy PROPERTIES CUDA_ARCHITECTURES 70)
     target_link_libraries(accuracy ${ACCURACY_LIB_TO_LINK} cuda_common)

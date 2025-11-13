@@ -5,9 +5,9 @@
 class ReferenceBilateral : public IBilateral {
 public:
     void setup() override;
-    virtual void reset() override {};
-    virtual void run(stream_t* s) override;
-    virtual void teardown(BilateralData &_result) override;
+    void reset() override {};
+    void run(stream_t* s) override;
+    void teardown(BilateralData &_result) override;
 
 private:
     float *d_src;
