@@ -30,8 +30,10 @@ def compare_cdf(exp:Experiment,_filter:Filter):
     for i, u_hue in enumerate(hue_):
         temp_df = df[df[_filter.on_hue.axe] == u_hue]
         sorted_data = np.sort(temp_df[_filter.on_y.axe])
-        cdf = np.arange(1, len(sorted_data)+1) / len(sorted_data)
-        plt.plot(sorted_data, cdf, marker=None, color=colors[i],label=u_hue)
+        sorted_data_u, counts = np.unique(sorted_data, return_counts=True)
+        cumulative_counts = np.cumsum(counts)
+        cdf = cumulative_counts / len(sorted_data)
+        plt.step(sorted_data_u, cdf, marker=None, color=colors[i],label=u_hue)
     plt.xlabel(_filter.on_y.axe)
     plt.ylabel('CDF')
     title = f'Empirical CDF of {_filter.on_y.axe}'
@@ -227,3 +229,77 @@ def compare_entropy_types(exp:Experiment,_filter:Filter):
     plt.ylabel(in_filter.on_y.axe)
     if in_filter.on_hue.used : 
       plt.legend(handles=legend_elements)
+      
+      
+######
+#
+#. Ecdf comparison Plots
+#
+#####
+
+def subtitle_tofix(_filter:Filter,to_fix:list)->int:
+    title_ = '{'
+    for column in to_fix:
+        title_+=f"{column}:{_filter.defaults[column]},"
+    title_ = title_[:-1] + '}'    
+    title,height = wrap_title(title_,70)
+    plt.text(0.5, 1.01, title, ha='center', va='bottom', transform=plt.gca().transAxes, fontsize=8)
+    return height
+
+
+def compare_variables_impact_on_ecdf_metrics(exp:Experiment,_filter:Filter):
+    in_filter = _filter.copy()
+    in_filter.set_x(used=True)
+    in_filter.set_y(used=False)
+    in_filter.set_hue(used=False)
+    variables = []
+    for def_input in DEFAULT_INPUTS:
+        if def_input in exp.inner_df.columns :
+            variables.append(def_input)
+    to_fix_variables = ["version"]
+    used = [item for item in variables if item not in to_fix_variables]
+    in_filter.custom_used = used
+    for var in variables:
+        in_filter.set_x(var)
+        df = exp.filter(in_filter)
+        heatmap_data = df.groupby(var)[EcdfMetrics.METRICS_NAMES].mean()
+        
+        plt.figure(figsize=(12, max(3, len(heatmap_data)/2)))
+        sns.heatmap(heatmap_data, annot=True, fmt=".4f", cmap="coolwarm", 
+                    cbar_kws={'label': 'Value'})
+        title = f"Mean distance measures grouped by {var}"
+        sub_height = subtitle(in_filter)
+        do_title(title,sub_height)
+        plt.ylabel(var)
+        plt.xlabel("Measure")
+        plt.tight_layout()
+        plt.show()
+        
+#Set Filter X -> what is on the X of the heatmap
+#Set Filter Y -> How is the color determined on the heatmap
+def compare_configurations_ecdf_metrics(exp:Experiment,_filter:Filter):
+    in_filter = _filter.copy()
+    in_filter.set_x(used=True)
+    in_filter.set_y(used=True)
+    in_filter.set_hue(used=False)
+    in_filter.set_subplot(used=False)
+    variables = [item for item in DEFAULT_INPUTS if item not in in_filter.on_x.axe and item in exp.inner_df.columns]
+    in_filter.custom_used = variables
+    df = exp.filter(in_filter)
+    df['Y_Configuration'] = df.apply(
+        lambda row: '|'.join([f"{row[var]}" for var in variables]), axis=1
+    )
+    df_mean_aggregated = df.groupby([in_filter.on_x.axe, 'Y_Configuration'])[in_filter.on_y.axe].mean().reset_index()
+    heatmap_data = df_mean_aggregated.pivot(
+    index='Y_Configuration', 
+    columns=in_filter.on_x.axe, 
+    values=in_filter.on_y.axe
+    )
+    plt.figure(figsize=(12, len(heatmap_data) / 5)) # Ajuster la taille pour toutes les lignes
+    sns.heatmap(
+        heatmap_data, 
+        annot=False, # Désactiver les annotations si l'ensemble est trop grand
+        cmap="viridis", # Un bon dégradé pour les données continues
+        cbar_kws={'label': in_filter.on_y.axe}
+    )
+    

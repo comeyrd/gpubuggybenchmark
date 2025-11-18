@@ -9,6 +9,9 @@ from tqdm import tqdm
 import scipy.stats as scistats
 from typing import Self
 
+def _exp_name_from_csv_path(csv_path):
+  return os.path.splitext(os.path.basename(csv_path))[0]
+  
 def _check_nonempty(df: pd.DataFrame, key: str):
     if df.empty:
         raise ValueError(f"Filtering on '{key}' produced an empty dataframe.")
@@ -39,14 +42,14 @@ class PickleWrapper:
 
   @staticmethod
   def getCachedName(path,attributes):
-      file_name = os.path.splitext(os.path.basename(path))[0]
+      file_name = _exp_name_from_csv_path(path)
       path = f"temp/{file_name}-{attributes}.pickle"
       return path
   @staticmethod
   def getCachedComparisonName(*paths, attributes):
     if len(paths) < 2:
         raise ValueError("Need at least 2 paths to compare")
-    file_names = [os.path.splitext(os.path.basename(path))[0] for path in paths]
+    file_names = [_exp_name_from_csv_path(path) for path in paths]
     file_names_sorted = sorted(file_names)
     names_str = "-".join(file_names_sorted)
     path = f"temp/{names_str}-{attributes}.pickle"
@@ -71,7 +74,7 @@ class axisFilter:
   def __str__(self):
     return f'{{axe : {self.axe}, used : {self.used}, exp : {self.explode}}}'
 
-DEFAULT_INPUTS = ["repetitions","warmups","work_size","flush_l2","blocking","kernel","version","exp"]
+DEFAULT_INPUTS = ["kernel","version","repetitions","warmups","work_size","flush_l2","blocking","exp"]
 class Filter:
   defaults:dict = {}
   on_x:axisFilter = axisFilter()
@@ -79,6 +82,7 @@ class Filter:
   on_hue:axisFilter = axisFilter()
   on_subplot:axisFilter = axisFilter()
   subsets:dict = {}
+  custom_used = []
   def __str__(self):
     return f"{{defaults:{self.defaults}, on_x:{self.on_x}, on_y:{self.on_y}, on_hue:{self.on_hue}, on_subplot:{self.on_subplot}, subsets:{self.subsets}}}"
   def __init__(self,df):
@@ -89,7 +93,7 @@ class Filter:
         values_l = df[def_input].unique()
         self.defaults[def_input] = values_l[len(values_l)//2]
   @classmethod
-  def empty(cls):
+  def empty(cls)->Self:
       """Create an empty Filter without requiring a dataframe."""
       instance = object.__new__(cls)
       instance.defaults = {}
@@ -98,7 +102,17 @@ class Filter:
       instance.on_y = axisFilter()
       instance.on_hue = axisFilter()
       instance.on_subplot = axisFilter()
+      instance.custom_used = []
       return instance
+
+  @classmethod
+  def from_best_config(cls,df:pd.DataFrame)->Self:
+    empty = cls.empty()
+    df = df.sort_values(by=EcdfMetrics.ECDF_COMPARISON_SCORE,ascending=False)
+    for def_input in DEFAULT_INPUTS:
+      if def_input in df.columns :
+        empty.defaults[def_input] = df[def_input].iloc[0]
+    return empty
   
   def copy(self):
     """Create a deep copy of this Filter."""
@@ -146,18 +160,20 @@ class Filter:
       self.on_subplot.used = used
       
   def get_used(self):
-    used = []
+    used = set()
+    for element in self.custom_used:
+      used.add(element)
     if self.on_x.used:
-      used.append(self.on_x.axe)
+      used.add(self.on_x.axe)
     if self.on_y.used:
-      used.append(self.on_y.axe)
+      used.add(self.on_y.axe)
     if self.on_hue.used:
       if self.on_hue.axe is not None:
-        used.append(self.on_hue.axe)
+        used.add(self.on_hue.axe)
     if self.on_subplot.used:
       if self.on_subplot.axe is not None:
-        used.append(self.on_subplot.axe)
-    return used
+        used.add(self.on_subplot.axe)
+    return list(used)
   
   def get_subtitle(self):
     title = "{"
@@ -165,7 +181,9 @@ class Filter:
     for key, val in self.defaults.items():        
       if key not in used:
         title+=f"{key}:{val} ,"
-    title = title[:-1] + '}'    
+    title = title[:-1] + '}'
+    if title == "}" : 
+      title = "{}"
     return title
 class Experiment:
   source_csv = None
@@ -260,8 +278,8 @@ class Experiment:
     duplicates = []
     for key, val in exp_filter.defaults.items():        
       if key in columns and key not in used:
-        if isinstance(val,list):
-          temp_df = temp_df[temp_df[key].isin(val)]
+        if val == "Reference":  
+          temp_df = temp_df[temp_df[key].str.contains("Reference",na=False)]
         else:
           temp_df = temp_df[temp_df[key]==val]
         _check_nonempty(temp_df,key)
@@ -270,7 +288,8 @@ class Experiment:
     for key_sub, val_sub in exp_filter.subsets.items():
       if key_sub in columns :
         if not isinstance(val_sub,list):
-          raise ValueError("Subset that is not a list")
+            temp_df = temp_df[temp_df[key_sub].str.contains(val_sub)]
+            _check_nonempty(temp_df,key)
         else:
           temp_df = temp_df[temp_df[key_sub].isin(val_sub)]
           _check_nonempty(temp_df,key_sub)
@@ -283,10 +302,18 @@ class Experiment:
     df_unique = temp_df.drop_duplicates(subset=duplicates,keep="first")
     if exp_filter.on_y.explode and exp_filter.on_y.used:
       df_unique = df_unique.explode(exp_filter.on_y.axe)
-    return df_unique
+    return df_unique.copy()
 
+  def fix_values(self,exp_filter:Filter,columns_to_fix:list):
+    temp_df = self.inner_df.copy()
+    for column in columns_to_fix:
+      if column in self.inner_df.columns:
+        temp_df = temp_df[temp_df[column]==exp_filter.defaults[column]]
+        _check_nonempty(temp_df,column)
+    return temp_df
+    
   @classmethod
-  def compare_experiments(cls, *experiments: Self) -> Self:
+  def concat_experiments(cls, *experiments: Self) -> Self:
       if len(experiments) < 2:
         raise ValueError("Need at least 2 experiments to compare")
       first_actions = experiments[0].actions
@@ -299,11 +326,49 @@ class Experiment:
       csv_names = [exp.source_csv for exp in experiments]
       cache_name = PickleWrapper.getCachedComparisonName(*csv_names, attributes=experiments[0].actions)
       dfs_to_concat = [
-        exp.inner_df.assign(exp=os.path.splitext(os.path.basename(exp.source_csv))[0])
+        exp.inner_df.assign(exp=_exp_name_from_csv_path(exp.source_csv))
         for exp in experiments
       ]
       newdf = pd.concat(dfs_to_concat, ignore_index=True)
       return cls.from_dataframe(newdf, experiments[0].actions, cache_name)
+  
+  
+  @classmethod
+  def compare_experiments_ecdf(cls,exp1:Self,exp2:Self,default_var=DEFAULT_INPUTS)->Self:
+    variables = []
+    for def_input in DEFAULT_INPUTS:
+      if def_input in exp1.inner_df.columns :
+         variables.append(def_input)
+
+    df1 = exp1.inner_df.copy()
+    df2 = exp2.inner_df.copy()
+    df1["name1"] = _exp_name_from_csv_path(exp1.source_csv)
+    df2["name2"] = _exp_name_from_csv_path(exp2.source_csv)
+    df1.rename(columns={"repetitions_duration":"repetitions_duration1"},inplace=True)
+    df2.rename(columns={"repetitions_duration":"repetitions_duration2"},inplace=True)
+    df1_small = df1[variables + ["repetitions_duration1","name1"]]
+    df2_small = df2[variables + ["repetitions_duration2","name2"]]
+    merged = pd.merge(df1_small,df2_small,on=variables,how="inner")
+    merged["ks"] = pd.Series(dtype=float)
+    merged["total_area"] = pd.Series(dtype=float)
+    merged["signed_area"] = pd.Series(dtype=float)
+    merged["cvm"] = pd.Series(dtype=float)
+    merged["superiority"] = pd.Series(dtype=float)
+    for i, row in merged.iterrows():
+        ecdf1 = Ecdf(row["repetitions_duration1"])
+        ecdf2 = Ecdf(row["repetitions_duration2"])
+        merged.loc[i, "ks"] = EcdfMetrics.k_s_test(ecdf1, ecdf2)
+        total, signed = EcdfMetrics.ecdf_area(ecdf1, ecdf2)
+        merged.loc[i, "total_area"] = total
+        merged.loc[i, "signed_area"] = np.abs(signed)
+        merged.loc[i, "cvm"] = EcdfMetrics.cvm_distance(ecdf1, ecdf2)
+        merged.loc[i, "superiority"] = EcdfMetrics.prob_superiority(ecdf1, ecdf2)
+    merged["repetitions_duration_mean_difference"] = np.abs((merged["repetitions_duration1"].apply(np.mean) - merged["repetitions_duration2"].apply(np.mean))/merged["repetitions_duration1"].apply(np.mean))
+    final_df = EcdfMetrics.rank_configurations(merged)
+    csv_names = [exp1.source_csv,exp2.source_csv]
+    cache_name = PickleWrapper.getCachedComparisonName(*csv_names, attributes="ecdf")
+    return cls.from_dataframe(final_df, "ecdf", cache_name)
+
 
 class Bootstraping:
   @staticmethod
@@ -368,3 +433,110 @@ class Entropy:
             slopes.append(slope)
         count += 1
     return entropies, r2s, stables, slopes
+
+
+class Ecdf:
+    sorted_in:list
+    base_array:list
+    name:str
+    def __init__(self,array,name:str=""):
+        self.name = name
+        self.base_array = array
+        sorted = np.sort(array)
+        self.sample_size = len(sorted)
+        self.sorted_in, counts = np.unique(sorted, return_counts=True)
+        cumulative_counts = np.cumsum(counts)
+        self.cdf = cumulative_counts / self.sample_size
+        
+    def at(self, continuous_val):
+        index = np.searchsorted(self.sorted_in, continuous_val, side='right') - 1
+        # Ensure index is clipped to [-1, last_valid]
+        index = np.clip(index, -1, len(self.cdf) - 1)
+        
+        out = np.zeros_like(index, dtype=float)
+        mask = index >= 0
+        out[mask] = self.cdf[index[mask]]
+        return out
+
+    def plot(self,color=None):
+        plt.step(self.sorted_in,self.cdf,color=color,label=self.name)
+        
+
+class EcdfMetrics : 
+  METRICS_NAMES = ["ks","total_area","signed_area","cvm","superiority"]
+  @staticmethod
+  def k_s_test(ecdf1: Ecdf, ecdf2: Ecdf) -> float:
+      """
+      Gives the max difference between the two ecdf
+      """
+      x = np.unique(np.concatenate([ecdf1.sorted_in, ecdf2.sorted_in]))
+      f1 = ecdf1.at(x)
+      f2 = ecdf2.at(x)
+      return np.max(np.abs(f1 - f2))
+    
+  @staticmethod
+  def ecdf_area(ecdf1: Ecdf, ecdf2: Ecdf):
+    """
+    Gives back the area between the two curves, 
+    returns total_area,signed_area
+    """
+    x = np.unique(np.concatenate([ecdf1.sorted_in, ecdf2.sorted_in]))
+    f1 = ecdf1.at(x)
+    f2 = ecdf2.at(x)
+    dx = np.diff(x)
+    return np.sum(np.abs(f1[:-1] - f2[:-1]) * dx), np.sum((f1[:-1] - f2[:-1]) * dx)
+
+  @staticmethod
+  def cvm_distance(ecdf1: Ecdf, ecdf2: Ecdf):
+    """
+    Computes the two-sample Cramér–von Mises statistic T
+    between two empirical CDFs.
+
+    T = (m*n/(m+n)^2) * sum (F1(x) - F2(x))^2 over all points x
+    in the combined sorted sample.
+    """
+    # All unique points from both samples
+    x = np.unique(np.concatenate([ecdf1.sorted_in, ecdf2.sorted_in]))
+
+    # Evaluate both ECDFs on the same grid
+    F1 = ecdf1.at(x)
+    F2 = ecdf2.at(x)
+
+    m = ecdf1.sample_size
+    n = ecdf2.sample_size
+
+    # CvM statistic
+    T = (m * n / (m + n)**2) * np.sum((F1 - F2)**2)
+
+    return T
+
+  @staticmethod
+  def prob_superiority(ecdf1:Ecdf,ecdf2:Ecdf):
+    x = np.unique(np.concatenate([ecdf1.sorted_in, ecdf2.sorted_in]))
+    F1 = ecdf1.at(x)
+    F2 = ecdf2.at(x)
+    f2 = np.diff(np.concatenate([[0], F2]))
+    return np.sum(f2 * F1)
+  
+  ECDF_COMPARISON_SCORE = "Ecdf_Comparison_Score"
+  
+  @staticmethod
+  def rank_configurations(dataframe:pd.DataFrame):
+    old_columns = dataframe.columns.to_list()
+    METRICS_LOWER_IS_BETTER = ['ks', 'total_area', 'signed_area', 'cvm']
+    METRICS_CLOSEST_TO_05 = ['superiority']
+    all_metrics = []
+    for metric in METRICS_CLOSEST_TO_05:
+      dataframe[f"{metric}_distance"] = np.abs(dataframe[metric] - 0.5)
+      METRICS_LOWER_IS_BETTER.append(f"{metric}_distance")
+    
+    for metric in METRICS_LOWER_IS_BETTER:
+      min_val = dataframe[metric].min()
+      max_val = dataframe[metric].max()
+      # Normalize and invert: 1 - (M - Min) / (Max - Min)
+      dataframe[f'{metric}_norm'] = 1 - (dataframe[metric] - min_val) / (max_val - min_val)
+      all_metrics.append(f'{metric}_norm')
+      
+    dataframe[EcdfMetrics.ECDF_COMPARISON_SCORE] = dataframe.apply(lambda row: sum(row[col] for col in all_metrics),axis=1)
+    return dataframe[old_columns+[EcdfMetrics.ECDF_COMPARISON_SCORE]]
+  

@@ -100,3 +100,14 @@ def combined_subplots_bootstrap(exp: dl.Experiment, filter_:dl.Filter):
                     va='bottom', ha='center', 
                     fontsize=12, fontweight='bold')
     return fig
+
+
+# Set X and hue
+def combined_ecdf_scores(exp:dl.Experiment,filter_:dl.Filter,axs=None):
+    in_filter = filter_.copy()
+    if axs is None:
+        fig, axs = plt.subplots(1, len(dl.EcdfMetrics.METRICS_NAMES), figsize=(len(dl.EcdfMetrics.METRICS_NAMES)*4, 4), constrained_layout=True)
+    for i,name in enumerate(dl.EcdfMetrics.METRICS_NAMES):
+        plt.sca(axs[i])
+        in_filter.set_y(name,explode=False)
+        bp.line_plot(exp,in_filter)
