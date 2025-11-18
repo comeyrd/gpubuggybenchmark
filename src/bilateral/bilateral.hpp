@@ -15,31 +15,25 @@ constexpr float VARIANCE_I = 10.0f;
 constexpr float VARIANCE_SPATIALE = 12.0f;
 constexpr float A_SQUARE = 0.5f / (VARIANCE_I * (float)M_PI);
 
-constexpr int WIDTH = 4000;
-constexpr int HEIGHT = 4000;
+constexpr int MINIMAL_WIDTH = 400;
+constexpr int MINIMAL_HEIGHT = 400;
 
 constexpr float ROUNDING_ERROR = 1e-3;
 
-struct BilateralSettings : BaseSettings {
-    int width = WIDTH;
-    int height = HEIGHT;
+struct BilateralData : IData,IResult {
+    int width;
+    int height;
     float a_square = A_SQUARE;
     float variance_I = VARIANCE_I;
     float variance_spatial = VARIANCE_SPATIALE;
-    BilateralSettings(int repetitions_, int warmup_):BaseSettings(repetitions_,warmup_){};
-};
-
-struct BilateralData : BaseData,BaseResult {
-    uint width;
-    uint height;
     size_t b_size;
-    uint size;
+    int size;
     float *image;
 
-    explicit BilateralData(const BilateralSettings &settings) : BaseData(settings),BaseResult(settings){
-        width = settings.width;
-        height = settings.height;
-        size = settings.width * settings.height;
+    explicit BilateralData(const int& work_size ) : IData(work_size), IResult(work_size){
+        width = MINIMAL_WIDTH * work_size;
+        height = MINIMAL_HEIGHT * work_size;
+        size = width * height;
         b_size = size * sizeof(float);
         image = (float *)malloc(b_size);
         if (!image) throw std::bad_alloc();
@@ -47,6 +41,18 @@ struct BilateralData : BaseData,BaseResult {
     };
 
     void generate_random() override;
+    void resize(int work_size) override{
+        if(image){
+            free(image);
+            image = nullptr;
+        }
+        width = MINIMAL_WIDTH * work_size;
+        height = MINIMAL_HEIGHT * work_size;
+        size = width * height;
+        b_size = size * sizeof(float);
+        image = (float *)malloc(b_size);
+        if (!image) throw std::bad_alloc();
+    }
 
     ~BilateralData(){
         free(image);
@@ -78,13 +84,13 @@ inline std::ostream& operator<<(std::ostream& os , BilateralData &a_result) {
 
 
 
-using IBilateral = IVersion<BilateralData,BilateralSettings,BilateralData>;
+using IBilateral = IVersion<BilateralData,BilateralData>;
 
 template <int R>
-void templated_run_cpu(const BilateralData &bData, const BilateralSettings &bSettings, BilateralData &bResult);
+void templated_run_cpu(const BilateralData &bData, BilateralData &bResult);
 
 
-class Bilateral : public IKernel<BilateralData, BilateralSettings, BilateralData >{
+class Bilateral : public IKernel<BilateralData, BilateralData >{
 
     public :
         Bilateral() = default;
@@ -93,7 +99,7 @@ class Bilateral : public IKernel<BilateralData, BilateralSettings, BilateralData
         }
     private:
         void run_cpu() override{
-            return templated_run_cpu<4>(data,settings,cpu_result);
+            return templated_run_cpu<4>(m_data, m_cpu_result);
         };
 };
 

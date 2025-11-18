@@ -4,9 +4,22 @@
 #include <iostream>
 #include <fstream>
 #include <string>      // std::string
-#include "Kernel.hpp"
+#include "Types.hpp"
+
+#include <iostream>
+#include <chrono>
+
+template <typename Func>
+void MeasureCpuTime(const std::string& name, Func func) {
+    auto start = std::chrono::high_resolution_clock::now();
+    func();
+    auto end = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double, std::milli> duration = end - start;
+    std::cout << name << " took " << duration.count() << " ms" << std::endl;
+}
 
 struct KernelStats{
+    ExecutionConfig m_config;
     float memcpy2D = 0;//Mem init + copy 2device
     float memcpy2H = 0;//copy back 2 host
     float* warmup_duration;
@@ -15,13 +28,13 @@ struct KernelStats{
     float mean_repetitions;
     int nb_w;
     int nb_r;
-    BaseSettings settings;
     bool str_ver_ker = false;//if the kernel and version have been allocated and filled
     std::string kernel;
     std::string version;
-    explicit KernelStats(BaseSettings settings_):settings(settings_){
-        warmup_duration = new float[settings.warmup];
-        repetitions_duration = new float[settings.repetitions];
+
+    explicit KernelStats(ExecutionConfig config):m_config(config){
+        warmup_duration = new float[m_config.m_warmups];
+        repetitions_duration = new float[m_config.m_repetitions];
     }
     ~KernelStats(){
         delete warmup_duration;
@@ -46,13 +59,13 @@ struct KernelStats{
         mean_repetitions = total / nb_r;
     }
     KernelStats(const KernelStats& other)
-        : memcpy2D(other.memcpy2D),
+        : m_config(other.m_config),
+          memcpy2D(other.memcpy2D),
           memcpy2H(other.memcpy2H),
           mean_warmup(other.mean_warmup),
           mean_repetitions(other.mean_repetitions),
           nb_w(other.nb_w),
           nb_r(other.nb_r),
-          settings(other.settings),
           str_ver_ker(other.str_ver_ker),
           kernel(other.kernel),
           version(other.version)
@@ -80,15 +93,34 @@ struct KernelStats{
 
 template <typename T>
 struct CSVExportable;
+template <>
+struct CSVExportable<ExecutionConfig> {
+    static std::string header() {
+        return "repetitions,warmups,work_size,flush_l2,blocking";
+    }
 
+    static std::string values(const ExecutionConfig& cfg) {
+        std::ostringstream oss;
+        oss << cfg.m_repetitions << ","
+            << cfg.m_warmups << ","
+            << cfg.m_work_size << ","
+            << (cfg.m_flush_l2 ? 1 : 0) << ","
+            << (cfg.m_blocking ? 1 : 0);
+        return oss.str();
+    }
+};
 template <>
 struct CSVExportable<KernelStats> {
     static std::string header() {
-        return "memcpy2D,memcpy2H,warmup_duration,repetitions_duration,warmup,repetitions,kernel,version";
+        std::ostringstream oss;
+        oss << CSVExportable<ExecutionConfig>::header()
+            << ",memcpy2D,memcpy2H,warmup_duration,repetitions_duration,kernel,version";
+        return oss.str();
     }
 
     static std::string values(const KernelStats& ks) {
         std::ostringstream oss;
+        oss << CSVExportable<ExecutionConfig>::values(ks.m_config) << ",";
         oss << std::fixed << std::setprecision(6) << ks.memcpy2D << "," << ks.memcpy2H << "," ;
         for (int w = 0; w < ks.nb_w-1;w++){
             oss << ks.warmup_duration[w] << "|";
@@ -98,9 +130,7 @@ struct CSVExportable<KernelStats> {
         for (int r = 0; r < ks.nb_r-1;r++){
             oss << ks.repetitions_duration[r] << "|";
         }
-        oss << ks.repetitions_duration[ks.nb_r-1] << ",";
-        
-        oss << ks.settings.warmup << "," << ks.settings.repetitions;
+        oss << ks.repetitions_duration[ks.nb_r-1];
 
         if (ks.str_ver_ker){
             oss << "," << ks.kernel << "," << ks.version;    

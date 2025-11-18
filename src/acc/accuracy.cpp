@@ -3,19 +3,19 @@
 #include <random>
 
 void Accuracy::run_cpu() {
-    cpu_result.count = 0;
-    for (int row = 0; row < data.n_rows; row++) {
-        const int label = data.label[row];
-        const float label_pred = data.data[row * data.ndims + label];
+    m_cpu_result.count = 0;
+    for (int row = 0; row < m_data.n_rows; row++) {
+        const int label = m_data.label[row];
+        const float label_pred = m_data.data[row * m_data.ndims + label];
         int ngt = 0;
-        for (int col = 0; col < data.ndims; col++) {
-            const float pred = data.data[row * data.ndims + col];
+        for (int col = 0; col < m_data.ndims; col++) {
+            const float pred = m_data.data[row * m_data.ndims + col];
             if (pred > label_pred || (pred == label_pred && col <= label)) {
                 ++ngt;
             }
         }
-        if (ngt <= data.topk) {
-            ++cpu_result.count;
+        if (ngt <= m_data.topk) {
+            ++m_cpu_result.count;
         }
     }
 }

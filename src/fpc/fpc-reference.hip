@@ -1,26 +1,25 @@
-#include <stdio.h>      /* defines printf for tests */
-#include <stdlib.h> 
+#include "hip-utils.hpp"
+#include "fpc-reference.hpp"
 #include <chrono>
 #include <hip/hip_runtime.h>
-#include "fpc-reference.hpp"
-#include "hip-utils.hpp"
+#include <stdio.h> /* defines printf for tests */
+#include <stdlib.h>
 
 namespace {
-__device__
-unsigned my_abs ( int x )
-{
-  unsigned t = x >> 31;
-  return (x ^ t) - t;
-}
+    __device__ unsigned my_abs(int x) {
+        unsigned t = x >> 31;
+        return (x ^ t) - t;
+    }
 }
 
 __global__ void
-fpc_reference_kernel(const ulong *values, unsigned *cmp_size, size_t* length) {
+fpc_reference_kernel(const ulong *values, unsigned *cmp_size, size_t *length) {
     __shared__ unsigned compressable;
     int lid = threadIdx.x;
     int WGS = blockDim.x;
     size_t gid = blockIdx.x * WGS + lid;
-    if(gid > *length) return;
+    if (gid > *length)
+        return;
     ulong value = values[gid];
     unsigned inc;
 
@@ -64,40 +63,28 @@ fpc_reference_kernel(const ulong *values, unsigned *cmp_size, size_t* length) {
     }
 }
 
-KernelStats ReferenceFPC::run(const FPCData &data, const FPCSettings &settings, FPCResult &result) const {
-  HipProfiling prof(settings);
-  ulong* d_values;
-  unsigned* d_cmp_size;
-  size_t* d_length;
-  prof.begin_mem2D();
-  CHECK_HIP(hipMalloc((void**)&d_values, data.b_size));
-  CHECK_HIP(hipMemcpy(d_values, data.values, data.b_size, hipMemcpyHostToDevice));
-  CHECK_HIP(hipMalloc((void**)&d_cmp_size, sizeof(unsigned)));
-  CHECK_HIP(hipMalloc((void**)&d_length, sizeof(size_t)));
-  CHECK_HIP(hipMemcpy(d_length, &data.length, sizeof(size_t), hipMemcpyHostToDevice));
+void ReferenceFPC::setup() {
+    CHECK_HIP(hipMalloc((void **)&d_values, m_data->b_size));
+    CHECK_HIP(hipMemcpy(d_values, m_data->values, m_data->b_size, hipMemcpyHostToDevice));
+    CHECK_HIP(hipMalloc((void **)&d_cmp_size, sizeof(unsigned)));
+    CHECK_HIP(hipMalloc((void **)&d_length, sizeof(size_t)));
+    CHECK_HIP(hipMemcpy(d_length, &m_data->length, sizeof(size_t), hipMemcpyHostToDevice));
+    grids = dim3(m_data->length / m_data->wgz);
+    threads = dim3(m_data->wgz);
+}
 
-  prof.end_mem2D();
-  dim3 grids (data.length/settings.wgz);
-  dim3 threads (settings.wgz);
-  for(int w = 0; w < settings.warmup ; w++){
-    prof.begin_warmup();
+void ReferenceFPC::reset() {
     CHECK_HIP(hipMemset(d_cmp_size, 0, sizeof(int)));
-    fpc_reference_kernel<<<grids, threads>>>(d_values, d_cmp_size,d_length);
-    prof.end_warmup();
-  }
-  for(int r = 0 ; r < settings.repetitions ; r++){
-    prof.begin_repetition();
-    CHECK_HIP(hipMemset(d_cmp_size, 0, sizeof(int)));
-    fpc_reference_kernel<<<grids, threads>>>(d_values, d_cmp_size,d_length);
-    prof.end_repetition();
-  }
-  prof.begin_mem2H();
-  CHECK_HIP(hipMemcpy(&result.size_, d_cmp_size, sizeof(unsigned), hipMemcpyDeviceToHost));
-  prof.end_mem2H();
-  CHECK_HIP(hipFree(d_values));
-  CHECK_HIP(hipFree(d_length));
-  CHECK_HIP(hipFree(d_cmp_size));
-  return prof.retreive();
-};
+}
 
-REGISTER_CLASS(IFPC,ReferenceFPC)
+void ReferenceFPC::run(stream_t *s) {
+    fpc_reference_kernel<<<grids, threads,0,s->native>>>(d_values, d_cmp_size, d_length);
+}
+void ReferenceFPC::teardown(FPCResult &_result){
+    CHECK_HIP(hipMemcpy(&_result.size_, d_cmp_size, sizeof(unsigned), hipMemcpyDeviceToHost));
+    CHECK_HIP(hipFree(d_values));
+    CHECK_HIP(hipFree(d_length));
+    CHECK_HIP(hipFree(d_cmp_size));
+}
+
+REGISTER_CLASS(IFPC, ReferenceFPC)

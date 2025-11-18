@@ -1,9 +1,45 @@
-#include "hip/hip_runtime.h"
 #include "hip-utils.hpp"
-#include "gpu-utils.hpp"
 
-void setup_gpu() {
-    CHECK_HIP(hipSetDevice(0));
+event_t **allocate_event_array(int count) {
+    event_t **events = new event_t *[count];
+    for (int i = 0; i < count; i++) {
+        events[i] = new event_t;
+        CHECK_HIP(hipEventCreate(&events[i]->native));
+    }
+    return events;
+}
+
+void free_event_array(event_t **events, int count) {
+    for (int i = 0; i < count; i++) {
+        CHECK_HIP(hipEventDestroy(events[i]->native));
+        delete events[i];
+    }
+    delete[] events;
+}
+
+GpuStream::GpuStream() {
+    stream = new stream_t;
+    CHECK_HIP(hipStreamCreate(&stream->native));
+}
+GpuStream::~GpuStream() {
+    CHECK_HIP(hipStreamDestroy(stream->native));
+    delete stream;
+}
+bool GpuStream::get_stream_availability(){
+    hipError_t stream_status = hipStreamQuery(stream->native);
+    if(stream_status == hipSuccess){
+          return true;
+    }else{
+        std::cout << hipGetErrorString(stream_status) << std::endl;
+        return false;
+    }
+}
+void GpuStream::synchronize(){
+    CHECK_HIP(hipStreamSynchronize(stream->native));
+}
+
+void setup_gpu(int device) {
+    CHECK_HIP(hipSetDevice(device));
 }
 
 void reset_gpu() {
@@ -13,111 +49,106 @@ void reset_gpu() {
 
 void check_hip_error(hipError_t error_code, const char *file, int line) {
     if (error_code != hipSuccess) {
-        std::string msg = std::string("Hip Error : ") + hipGetErrorString(error_code) + std::string(" in : ") + file + std::string(" line ") + std::to_string(line);
+        std::string msg = std::string("CUDA Error : ") + hipGetErrorString(error_code) + std::string(" in : ") + file + std::string(" line ") + std::to_string(line);
         throw std::runtime_error(msg);
     }
 }
 
-HipProfiling::HipProfiling(BaseSettings settings_) : settings(settings_) {
-    CHECK_HIP(hipEventCreate(&memstart2D));
-    CHECK_HIP(hipEventCreate(&memstop2D));
-    CHECK_HIP(hipEventCreate(&memstart2H));
-    CHECK_HIP(hipEventCreate(&memstop2H));
-    warmupstart = new hipEvent_t[settings.warmup];
-    warmupstop = new hipEvent_t[settings.warmup];
-    repetitionstart = new hipEvent_t[settings.repetitions];
-    repetitionstop = new hipEvent_t[settings.repetitions];
-    for (int w = 0; w < settings.warmup; w++) {
-        CHECK_HIP(hipEventCreate(&warmupstart[w]));
-        CHECK_HIP(hipEventCreate(&warmupstop[w]));
-    }
-    for (int r = 0; r < settings.repetitions; r++) {
-        CHECK_HIP(hipEventCreate(&repetitionstart[r]));
-        CHECK_HIP(hipEventCreate(&repetitionstop[r]));
-    }
+GpuEventTimer::GpuEventTimer(ExecutionConfig config, stream_t *gpustream) : m_config(config), stream(gpustream) {
+    memstart2D = new event_t;
+    memstop2D = new event_t;
+    memstart2H = new event_t;
+    memstop2H = new event_t;
+    CHECK_HIP(hipEventCreate(&memstart2D->native));
+    CHECK_HIP(hipEventCreate(&memstop2D->native));
+    CHECK_HIP(hipEventCreate(&memstart2H->native));
+    CHECK_HIP(hipEventCreate(&memstop2H->native));
+    warmupstart = allocate_event_array(m_config.m_warmups);
+    warmupstop = allocate_event_array(m_config.m_warmups);
+    repetitionstart = allocate_event_array(m_config.m_repetitions);
+    repetitionstop = allocate_event_array(m_config.m_repetitions);
 };
 
-HipProfiling::~HipProfiling() {
-    if (!destroy) {
-        try {
-            CHECK_HIP(hipEventDestroy(memstart2D));
-            CHECK_HIP(hipEventDestroy(memstop2D));
-            CHECK_HIP(hipEventDestroy(memstart2H));
-            CHECK_HIP(hipEventDestroy(memstop2H));
-            for (int w = 0; w < settings.warmup; w++) {
-                CHECK_HIP(hipEventDestroy(warmupstart[w]));
-                CHECK_HIP(hipEventDestroy(warmupstop[w]));
-            }
-            for (int r = 0; r < settings.repetitions; r++) {
-                CHECK_HIP(hipEventDestroy(repetitionstart[r]));
-                CHECK_HIP(hipEventDestroy(repetitionstop[r]));
-            }
-        } catch (std::exception &e) {
-            // std::cerr << "Error destroying Cuda profiler" << e.what()<<std::endl;
-        }
+GpuEventTimer::~GpuEventTimer() {
+    try {
+        CHECK_HIP(hipEventDestroy(memstart2D->native));
+        CHECK_HIP(hipEventDestroy(memstop2D->native));
+        CHECK_HIP(hipEventDestroy(memstart2H->native));
+        CHECK_HIP(hipEventDestroy(memstop2H->native));
+        free_event_array(warmupstart, m_config.m_warmups);
+        free_event_array(warmupstop, m_config.m_warmups);
+        free_event_array(repetitionstart, m_config.m_repetitions);
+        free_event_array(repetitionstop, m_config.m_repetitions);
+    } catch (std::exception &e) {
+        std::cerr << "Error destroying Cuda profiler" << e.what() << std::endl;
     }
 };
 
-void HipProfiling::begin_mem2D() {
-    CHECK_HIP(hipEventRecord(memstart2D));
+void GpuEventTimer::begin_mem2D() {
+    CHECK_HIP(hipEventRecord(memstart2D->native, stream->native));
 };
 
-void HipProfiling::end_mem2D() {
-    CHECK_HIP(hipEventRecord(memstop2D));
+void GpuEventTimer::end_mem2D() {
+    CHECK_HIP(hipEventRecord(memstop2D->native, stream->native));
 };
 
-void HipProfiling::begin_mem2H() {
-    CHECK_HIP(hipEventRecord(memstart2H));
+void GpuEventTimer::begin_mem2H() {
+    CHECK_HIP(hipEventRecord(memstart2H->native, stream->native));
 };
 
-void HipProfiling::end_mem2H() {
-    CHECK_HIP(hipEventRecord(memstop2H));
+void GpuEventTimer::end_mem2H() {
+    CHECK_HIP(hipEventRecord(memstop2H->native, stream->native));
 };
 
-void HipProfiling::begin_warmup() {
-    CHECK_HIP(hipEventRecord(warmupstart[nb_w]));
+void GpuEventTimer::begin_warmup() {
+    CHECK_HIP(hipEventRecord(warmupstart[nb_w]->native, stream->native));
 };
-void HipProfiling::end_warmup() {
-    CHECK_HIP(hipEventRecord(warmupstop[nb_w]));
+void GpuEventTimer::end_warmup() {
+    CHECK_HIP(hipEventRecord(warmupstop[nb_w]->native, stream->native));
     nb_w++;
 };
-void HipProfiling::begin_repetition() {
-    CHECK_HIP(hipEventRecord(repetitionstart[nb_r]));
+void GpuEventTimer::begin_repetition() {
+    CHECK_HIP(hipEventRecord(repetitionstart[nb_r]->native, stream->native));
 };
-void HipProfiling::end_repetition() {
-    CHECK_HIP(hipEventRecord(repetitionstop[nb_r]));
+void GpuEventTimer::end_repetition() {
+    CHECK_HIP(hipEventRecord(repetitionstop[nb_r]->native, stream->native));
     nb_r++;
 };
 
-KernelStats HipProfiling::retreive() {
-    CHECK_HIP(hipEventSynchronize(memstop2D));
-    CHECK_HIP(hipEventSynchronize(memstop2H));
-
-    KernelStats stats(settings);
-    CHECK_HIP(hipEventElapsedTime(&stats.memcpy2D, memstart2D, memstop2D));
-    CHECK_HIP(hipEventElapsedTime(&stats.memcpy2H, memstart2H, memstop2H));
+KernelStats GpuEventTimer::retreive() {
+    CHECK_HIP(hipEventSynchronize(memstop2D->native));
+    CHECK_HIP(hipEventSynchronize(memstart2D->native));
+    CHECK_HIP(hipEventSynchronize(memstart2H->native));
+    CHECK_HIP(hipEventSynchronize(memstop2H->native));
+    KernelStats stats(m_config);
+    CHECK_HIP(hipEventElapsedTime(&stats.memcpy2D, memstart2D->native, memstop2D->native));
+    CHECK_HIP(hipEventElapsedTime(&stats.memcpy2H, memstart2H->native, memstop2H->native));
     for (int w = 0; w < nb_w; w++) {
-        CHECK_HIP(hipEventElapsedTime(&stats.warmup_duration[w], warmupstart[w], warmupstop[w]));
+        CHECK_HIP(hipEventElapsedTime(&stats.warmup_duration[w], warmupstart[w]->native, warmupstop[w]->native));
     }
     for (int r = 0; r < nb_r; r++) {
-        CHECK_HIP(hipEventElapsedTime(&stats.repetitions_duration[r], repetitionstart[r], repetitionstop[r]));
+        CHECK_HIP(hipEventElapsedTime(&stats.repetitions_duration[r], repetitionstart[r]->native, repetitionstop[r]->native));
     }
     stats.nb_r = nb_r;
     stats.nb_w = nb_w;
-    if (!destroy) {
-        CHECK_HIP(hipEventDestroy(memstart2D));
-        CHECK_HIP(hipEventDestroy(memstop2D));
-        CHECK_HIP(hipEventDestroy(memstart2H));
-        CHECK_HIP(hipEventDestroy(memstop2H));
-        for (int w = 0; w < settings.warmup; w++) {
-            CHECK_HIP(hipEventDestroy(warmupstart[w]));
-            CHECK_HIP(hipEventDestroy(warmupstop[w]));
-        }
-        for (int r = 0; r < settings.repetitions; r++) {
-            CHECK_HIP(hipEventDestroy(repetitionstart[r]));
-            CHECK_HIP(hipEventDestroy(repetitionstop[r]));
-        }
-        destroy = true;
-    }
     return stats;
+}
+
+l2flushr::l2flushr() : cs() {
+    int dev_id{};
+    CHECK_HIP(hipGetDevice(&dev_id));
+    CHECK_HIP(hipDeviceGetAttribute(&buffer_size, hipDeviceAttributeL2CacheSize, dev_id));
+    if (buffer_size > 0) {
+        void *buffer = l2_buffer;
+        CHECK_HIP(hipMalloc(&buffer, static_cast<std::size_t>(buffer_size)));
+        l2_buffer = reinterpret_cast<int *>(buffer);
+    }
+}
+l2flushr::~l2flushr() {
+    if (l2_buffer) {
+        CHECK_HIP(hipFree(l2_buffer));
+    }
+}
+void l2flushr::flush(stream_t *stream) {
+    CHECK_HIP(hipMemsetAsync(l2_buffer, 0, static_cast<std::size_t>(buffer_size), stream->native));
 }

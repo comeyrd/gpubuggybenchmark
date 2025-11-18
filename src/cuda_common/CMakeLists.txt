@@ -1,5 +1,6 @@
 add_library(cuda_common STATIC
     cuda-utils.cu
+    blocking_kernel.cu
 )
 set_target_properties(cuda_common PROPERTIES CUDA_ARCHITECTURES 70)
 target_link_libraries(cuda_common PRIVATE argparse)

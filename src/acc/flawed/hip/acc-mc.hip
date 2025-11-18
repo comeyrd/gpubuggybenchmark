@@ -41,52 +41,31 @@ void accuracy_mc_kernel(const int N, const int D, const int top_k, const float* 
     atomicAdd(accuracy, count);
   }
 }
+void MCAccuracy::setup(){
+  CHECK_HIP(hipMalloc((void**)&d_label, m_data->label_sz_bytes));
+  CHECK_HIP(hipMemcpy(d_label, m_data->label, m_data->label_sz_bytes, hipMemcpyHostToDevice));
 
-KernelStats MCAccuracy::run(const AccuracyData &data, const AccuracySettings &settings, AccuracyResult &result) const{
-    HipProfiling prof(settings);
+  CHECK_HIP(hipMalloc((void**)&d_data, m_data->data_sz_bytes));
+  CHECK_HIP(hipMemcpy(d_data, m_data->data, m_data->data_sz_bytes, hipMemcpyHostToDevice));
 
-    prof.begin_mem2D();
-    int *d_label;
-    CHECK_HIP(hipMalloc((void**)&d_label, data.label_sz_bytes));
-    CHECK_HIP(hipMemcpy(d_label, data.label, data.label_sz_bytes, hipMemcpyHostToDevice));
+  CHECK_HIP(hipMalloc((void**)&d_count, sizeof(int)));
+  block = dim3(GPU_NUM_THREADS);
+  int grid_sz = (m_data->n_rows + GPU_NUM_THREADS - 1) / GPU_NUM_THREADS;
+  grid = dim3(grid_sz);
+}
 
-    float *d_data;
-    CHECK_HIP(hipMalloc((void**)&d_data, data.data_sz_bytes));
-    CHECK_HIP(hipMemcpy(d_data, data.data, data.label_sz_bytes, hipMemcpyHostToDevice));
+void MCAccuracy::reset(){
+  CHECK_HIP(hipMemset(d_count, 0, sizeof(int)));
+}
+void MCAccuracy::run(stream_t* s){
+  accuracy_mc_kernel<<<grid, block,0, s->native>>>(m_data->n_rows, m_data->ndims, m_data->topk, d_data, d_label, d_count);
+}
 
-    int *d_count;
-    CHECK_HIP(hipMalloc((void**)&d_count, sizeof(int)));
-
-    dim3 block (GPU_NUM_THREADS);
-
-    dim3 grid (settings.grid_sz);
-
-    
-    prof.end_mem2D();
-    for(int w = 0; w < settings.warmup ; w++){
-      prof.begin_warmup();
-      CHECK_HIP(hipMemset(d_count, 0, sizeof(int)));
-      accuracy_mc_kernel<<<grid, block>>>(data.n_rows, data.ndims, data.topk, d_data, d_label, d_count);
-      prof.end_warmup();
-    }
-    for(int r = 0 ; r < settings.repetitions ; r++){
-      prof.begin_repetition();
-      CHECK_HIP(hipMemset(d_count, 0, sizeof(int)));
-      accuracy_mc_kernel<<<grid, block>>>(data.n_rows, data.ndims, data.topk, d_data, d_label, d_count);
-      prof.end_repetition();
-    }
-
-    CHECK_HIP(hipDeviceSynchronize());
-    prof.begin_mem2H();
-    CHECK_HIP(hipMemcpy(&result.count, d_count, sizeof(int), hipMemcpyDeviceToHost));
-    CHECK_HIP(hipMemcpy(data.label, d_label, data.label_sz_bytes, hipMemcpyDeviceToHost));//BUG
-    CHECK_HIP(hipMemcpy(data.data, d_data, data.label_sz_bytes, hipMemcpyDeviceToHost));//BUG
-    prof.end_mem2H();
-
-    CHECK_HIP(hipFree(d_label));
-    CHECK_HIP(hipFree(d_data));
-    CHECK_HIP(hipFree(d_count));
-    return prof.retreive();
-};
+void MCAccuracy::teardown(AccuracyResult &_result){
+  CHECK_HIP(hipMemcpy(&_result.count, d_count, sizeof(int), hipMemcpyDeviceToHost));
+  CHECK_HIP(hipFree(d_label));
+  CHECK_HIP(hipFree(d_data));
+  CHECK_HIP(hipFree(d_count));
+}
 
 REGISTER_CLASS(IAccuracy,MCAccuracy);

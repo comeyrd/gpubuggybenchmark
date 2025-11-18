@@ -1,10 +1,19 @@
 #ifndef REFERENCE_BILATERAL_H
 #define REFERENCE_BILATERAL_H
 #include "bilateral.hpp"
-
 class ReferenceBilateral : public IBilateral {
 public:
-    KernelStats run(const BilateralData &data, const BilateralSettings &settings, BilateralData &result) const override;
+    void setup() override;
+    void reset() override {};
+    void run(stream_t* s) override;
+    void teardown(BilateralData &_result) override;
+
+private:
+    float *d_src;
+    float *d_dst;
+    dim3 threads;
+    dim3 blocks;
 };
 
 #endif
+

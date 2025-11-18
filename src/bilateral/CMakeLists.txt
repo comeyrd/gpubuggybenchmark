@@ -2,6 +2,8 @@ set(BILATERAL_DIR ${CMAKE_SOURCE_DIR}/bilateral)
 
 set(BILATERAL_COMMON_SRC
     ${BILATERAL_DIR}/bilateral.cpp
+    ${BILATERAL_DIR}/bilateral-reference.cu
+
 )
 
 set(BILATERAL_LIB_TO_LINK argparse)

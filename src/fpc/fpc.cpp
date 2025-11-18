@@ -1,5 +1,4 @@
 #include "fpc.hpp"
-#include "fpc-reference.hpp"
 #include <chrono>
 #include <iostream>
 #include <memory>
@@ -24,37 +23,37 @@ unsigned my_abs_cpu( int x )
 void FPC::run_cpu() {
     unsigned compressable = 0;
     unsigned i;
-    for (i = 0; i < data.length; i++) {
+    for (i = 0; i < m_data.length; i++) {
         // 000
-        if (data.values[i] == 0) {
+        if (m_data.values[i] == 0) {
             compressable += 1;
             continue;
         }
         // 001 010
-        if (my_abs_cpu((int)(data.values[i])) <= 0xFF) {
+        if (my_abs_cpu((int)(m_data.values[i])) <= 0xFF) {
             compressable += 1;
             continue;
         }
         // 011
-        if (my_abs_cpu((int)(data.values[i])) <= 0xFFFF) {
+        if (my_abs_cpu((int)(m_data.values[i])) <= 0xFFFF) {
             compressable += 2;
             continue;
         }
         // 100
-        if (((data.values[i]) & 0xFFFF) == 0) {
+        if (((m_data.values[i]) & 0xFFFF) == 0) {
             compressable += 2;
             continue;
         }
         // 101
-        if (my_abs_cpu((int)((data.values[i]) & 0xFFFF)) <= 0xFF && my_abs_cpu((int)((data.values[i] >> 16) & 0xFFFF)) <= 0xFF) {
+        if (my_abs_cpu((int)((m_data.values[i]) & 0xFFFF)) <= 0xFF && my_abs_cpu((int)((m_data.values[i] >> 16) & 0xFFFF)) <= 0xFF) {
             compressable += 2;
             continue;
         }
         // 110
-        unsigned byte0 = (data.values[i]) & 0xFF;
-        unsigned byte1 = (data.values[i] >> 8) & 0xFF;
-        unsigned byte2 = (data.values[i] >> 16) & 0xFF;
-        unsigned byte3 = (data.values[i] >> 24) & 0xFF;
+        unsigned byte0 = (m_data.values[i]) & 0xFF;
+        unsigned byte1 = (m_data.values[i] >> 8) & 0xFF;
+        unsigned byte2 = (m_data.values[i] >> 16) & 0xFF;
+        unsigned byte3 = (m_data.values[i] >> 24) & 0xFF;
         if (byte0 == byte1 && byte0 == byte2 && byte0 == byte3) {
             compressable += 1;
             continue;
@@ -62,6 +61,6 @@ void FPC::run_cpu() {
         // 111
         compressable += 4;
     }
-    cpu_result.size_ = compressable;
+    m_cpu_result.size_ = compressable;
 }
 REGISTER_CLASS(I_IKernel, FPC)
