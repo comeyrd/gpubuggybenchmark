@@ -40,6 +40,7 @@ void GpuStream::synchronize(){
 }
 
 void setup_gpu(int device) {
+    std::cout <<"chosen device"<<device<<std::endl;
     CHECK_CUDA(cudaSetDevice(device));
 }
 

@@ -158,7 +158,7 @@ std::vector<std::string> IKernel<Data, Result>::list_version() {
 template <typename Data, typename Result>
 void IKernel<Data, Result>::run_benchmark(class_umap<IVersion<Data, Result>> versions) {
     std::vector<int> warmups = {5};
-    std::vector<int> repetitions = {10, 50, 125, 250, 375, 400, 500, 750, 1000,1500};
+    std::vector<int> repetitions = {10, 50, 125, 250, 400, 750, 1000};
     std::vector<bool> blocking = {true, false};
     std::vector<bool> flush_l2 = {true, false};
     std::vector<int> work_size = {1, 2, 4};

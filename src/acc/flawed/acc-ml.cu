@@ -68,4 +68,4 @@ void MLAccuracy::teardown(AccuracyResult &_result){
   //CHECK_CUDA(cudaFree(d_count));BUG
 }
 
-REGISTER_CLASS(IAccuracy,MLAccuracy);
+//REGISTER_CLASS(IAccuracy,MLAccuracy);
