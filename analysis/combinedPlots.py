@@ -16,7 +16,7 @@ def combined_density_cdf(exp:dl.Experiment,filter_:dl.Filter,axs=None):
 def combined_bootstrap(exp:dl.Experiment,filter_:dl.Filter,axs=None):
     in_filter = filter_.copy()
     if axs is None:
-        fig, axs = plt.subplots(1, 4, figsize=(16, 4), constrained_layout=True)
+        fig, axs = plt.subplots(1, 5, figsize=(20, 4), constrained_layout=True)
     plt.sca(axs[0])
     in_filter.set_y("repetitions_duration",explode=True)
     bp.compare_densities(exp,in_filter) 
@@ -30,6 +30,8 @@ def combined_bootstrap(exp:dl.Experiment,filter_:dl.Filter,axs=None):
     in_filter.set_x("repetitions")
     bp.compare_std_std_precision(exp,in_filter)
     plt.sca(axs[3])
+    bp.compare_median_ci_precision(exp,in_filter)
+    plt.sca(axs[4])
     bp.comparison_std_error(exp,in_filter)
     in_filter.set_hue(old_hue,used=True)
     return
@@ -53,7 +55,7 @@ def combined_entropy(exp:dl.Experiment,filter_:dl.Filter,axs=None):
 
 
 def combined_entropy_bootstrap(exp:dl.Experiment,_filter:dl.Filter):
-    fig, axs = plt.subplots(2, 4, figsize=(16, 8), constrained_layout=True)
+    fig, axs = plt.subplots(2, 5, figsize=(20, 8), constrained_layout=True)
     combined_bootstrap(exp,_filter,axs[0])
     combined_entropy(exp,_filter,axs[1])
     return fig
@@ -71,7 +73,7 @@ def combined_subplots_bootstrap(exp: dl.Experiment, filter_:dl.Filter):
     in_filter.set_subplot(used=False)
 
     # Create subplot grid
-    fig, axs = plt.subplots(nb_rows, 4, figsize=(18, nb_rows*5), constrained_layout=True)
+    fig, axs = plt.subplots(nb_rows, 5, figsize=(21, nb_rows*5), constrained_layout=True)
     axs = np.atleast_2d(axs)
     
     for i in range(nb_rows):
@@ -81,7 +83,7 @@ def combined_subplots_bootstrap(exp: dl.Experiment, filter_:dl.Filter):
         
         combined_bootstrap(exp, in_filter, axs[i])
     
-    for col in range(2,4):
+    for col in range(2,5):
         ymin, ymax = float('inf'), float('-inf')
         for row in range(nb_rows):
             current_ax = axs[row][col]

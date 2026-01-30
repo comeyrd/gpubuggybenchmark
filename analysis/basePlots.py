@@ -303,3 +303,44 @@ def compare_configurations_ecdf_metrics(exp:Experiment,_filter:Filter):
         cbar_kws={'label': in_filter.on_y.axe}
     )
     
+
+### Median Plots
+
+
+# set x and hue, comparing the std of the std against the measure precision, Y is ci_high and ci_low
+def compare_median_ci_precision(exp:Experiment,_filter:Filter,precision=0.0005):
+    x_lbls = ['Precision']
+    _filter.set_x(used=True)
+    _filter.set_y(used=False)
+    df = exp.filter(_filter)
+    rep_arr = df[_filter.on_x.axe].unique()
+    x_lbls.extend(rep_arr)
+    plt.xticks(ticks=np.arange(len(x_lbls)), labels=x_lbls) 
+    middle = np.mean(((df["median_ci_high"] - df["median_ci_low"]) / 2) + df["median_ci_low"])
+    interval_plot(0,middle + precision/2,middle - precision/2,color="red",stable=True)
+    hue_ = df[_filter.on_hue.axe].unique()
+    colors = sns.color_palette("tab10", n_colors=len(hue_))
+    for i, u_hue in enumerate(hue_):
+        temp_df = df[df[_filter.on_hue.axe] == u_hue]
+        for j in range(len(rep_arr)):
+            temp_sq = temp_df[temp_df[_filter.on_x.axe]==rep_arr[j]]
+            if len(temp_sq) > 1:
+                print(temp_sq)
+                print("Multiple values where only one is wanted")
+                raise ValueError()
+            stable_ = False
+            if (temp_sq.iloc[0].median_ci_high - temp_sq.iloc[0].median_ci_low) <=precision:
+                stable_ = True
+            interval_plot(j+1,temp_sq.iloc[0].median_ci_high, temp_sq.iloc[0].median_ci_low,color=colors[i],stable=stable_)  
+    title = "Measure precision vs 95percent median confidence interval"
+    if _filter.on_hue.used : 
+        title += f", comparing {_filter.on_hue.axe}"
+    sub_height = subtitle(_filter)
+    do_title(title,sub_height)
+    legend_elements = [Line2D([0], [0], color=colors[i], lw=2, label=hue_[i]) for i in range(len(hue_))]
+    plt.xlabel(_filter.on_x.axe)
+    plt.ylabel("Confidence Interval")
+    if _filter.on_hue.used : 
+      plt.legend(handles=legend_elements)
+    
+    

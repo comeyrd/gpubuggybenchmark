@@ -6,16 +6,18 @@ import pandas as pd
 import numpy as np
 import scipy.stats as scistats
 from tqdm import tqdm
-import scipy.stats as scistats
 from typing import Self
+
 
 def _exp_name_from_csv_path(csv_path):
   return os.path.splitext(os.path.basename(csv_path))[0]
-  
+
+
 def _check_nonempty(df: pd.DataFrame, key: str):
     if df.empty:
         raise ValueError(f"Filtering on '{key}' produced an empty dataframe.")
-      
+
+
 def hashable(item):
   try:
     hash(item)
@@ -23,8 +25,10 @@ def hashable(item):
     return False
   return True
 
+
 DEFAULT_R2 = 0.36
 DEFAULT_SLOPE = 0.048
+
 
 class PickleWrapper:
   @staticmethod
@@ -41,10 +45,11 @@ class PickleWrapper:
       raise ValueError(f"Error : {path} does not exist")
 
   @staticmethod
-  def getCachedName(path,attributes):
+  def getCachedName(path, attributes):
       file_name = _exp_name_from_csv_path(path)
       path = f"temp/{file_name}-{attributes}.pickle"
       return path
+
   @staticmethod
   def getCachedComparisonName(*paths, attributes):
     if len(paths) < 2:
@@ -54,46 +59,59 @@ class PickleWrapper:
     names_str = "-".join(file_names_sorted)
     path = f"temp/{names_str}-{attributes}.pickle"
     return path
+
   def exists(pickle_path):
     return os.path.exists(pickle_path)
 
 # Actions on experiment :
 # b -> boostrapping
 # e -> entropy
+
+
 class axisFilter:
-  axe:str
-  used:bool
-  explode:bool
-  def __init__(self,axe_:str="",used_:bool=False,explode_:bool=False):
+  axe: str
+  used: bool
+  explode: bool
+
+  def __init__(self, axe_: str = "", used_: bool = False, explode_: bool = False):
     self.axe = axe_
     self.used = used_
     self.explode = explode_
+
   def copy(self):
     """Create a deep copy of this axisFilter."""
     return axisFilter(self.axe, self.used, self.explode)
+
   def __str__(self):
     return f'{{axe : {self.axe}, used : {self.used}, exp : {self.explode}}}'
 
-DEFAULT_INPUTS = ["kernel","version","repetitions","warmups","work_size","flush_l2","blocking","exp"]
+
+DEFAULT_INPUTS = ["kernel", "version", "repetitions",
+                  "warmups", "work_size", "flush_l2", "blocking", "exp"]
+
+
 class Filter:
-  defaults:dict = {}
-  on_x:axisFilter = axisFilter()
-  on_y:axisFilter = axisFilter()
-  on_hue:axisFilter = axisFilter()
-  on_subplot:axisFilter = axisFilter()
-  subsets:dict = {}
+  defaults: dict = {}
+  on_x: axisFilter = axisFilter()
+  on_y: axisFilter = axisFilter()
+  on_hue: axisFilter = axisFilter()
+  on_subplot: axisFilter = axisFilter()
+  subsets: dict = {}
   custom_used = []
+
   def __str__(self):
     return f"{{defaults:{self.defaults}, on_x:{self.on_x}, on_y:{self.on_y}, on_hue:{self.on_hue}, on_subplot:{self.on_subplot}, subsets:{self.subsets}}}"
-  def __init__(self,df):
+
+  def __init__(self, df):
     self.defaults = {}
     self.subsets = {}
     for def_input in DEFAULT_INPUTS:
-      if def_input in df.columns : 
+      if def_input in df.columns:
         values_l = df[def_input].unique()
         self.defaults[def_input] = values_l[len(values_l)//2]
+
   @classmethod
-  def empty(cls)->Self:
+  def empty(cls) -> Self:
       """Create an empty Filter without requiring a dataframe."""
       instance = object.__new__(cls)
       instance.defaults = {}
@@ -106,14 +124,14 @@ class Filter:
       return instance
 
   @classmethod
-  def from_best_config(cls,df:pd.DataFrame)->Self:
+  def from_best_config(cls, df: pd.DataFrame) -> Self:
     empty = cls.empty()
-    df = df.sort_values(by=EcdfMetrics.ECDF_COMPARISON_SCORE,ascending=False)
+    df = df.sort_values(by=EcdfMetrics.ECDF_COMPARISON_SCORE, ascending=False)
     for def_input in DEFAULT_INPUTS:
-      if def_input in df.columns :
+      if def_input in df.columns:
         empty.defaults[def_input] = df[def_input].iloc[0]
     return empty
-  
+
   def copy(self):
     """Create a deep copy of this Filter."""
     new_filter = Filter.empty()
@@ -124,20 +142,20 @@ class Filter:
     new_filter.on_hue = self.on_hue.copy()
     new_filter.on_subplot = self.on_subplot.copy()
     return new_filter
-    
-  def set_default(self,key,val):
+
+  def set_default(self, key, val):
     self.defaults[key] = val
 
-  def set_subsets(self,key,val):
+  def set_subsets(self, key, val):
     self.subsets[key] = val
-    
-  def set_x(self,name:str=None,used:bool=None):
+
+  def set_x(self, name: str = None, used: bool = None):
     if name is not None:
       self.on_x.axe = name
     if used is not None:
       self.on_x.used = used
 
-  def set_y(self,name:str=None,used:bool=None,explode:bool=None):
+  def set_y(self, name: str = None, used: bool = None, explode: bool = None):
     if name is not None:
       self.on_y.axe = name
     if used is not None:
@@ -145,20 +163,20 @@ class Filter:
     if explode is not None:
       self.on_y.explode = explode
 
-  def set_hue(self,name:str=None,used:bool=None,explode:bool=None):
+  def set_hue(self, name: str = None, used: bool = None, explode: bool = None):
     if name is not None:
       self.on_hue.axe = name
     if used is not None:
       self.on_hue.used = used
     if explode is not None:
       self.on_hue.explode = explode
-      
-  def set_subplot(self,name:str=None,used:bool=None):
+
+  def set_subplot(self, name: str = None, used: bool = None):
     if name is not None:
       self.on_subplot.axe = name
     if used is not None:
       self.on_subplot.used = used
-      
+
   def get_used(self):
     used = set()
     for element in self.custom_used:
@@ -174,26 +192,28 @@ class Filter:
       if self.on_subplot.axe is not None:
         used.add(self.on_subplot.axe)
     return list(used)
-  
+
   def get_subtitle(self):
     title = "{"
     used = self.get_used()
-    for key, val in self.defaults.items():        
+    for key, val in self.defaults.items():
       if key not in used:
-        title+=f"{key}:{val} ,"
+        title += f"{key}:{val} ,"
     title = title[:-1] + '}'
-    if title == "}" : 
+    if title == "}":
       title = "{}"
     return title
+
+
 class Experiment:
   source_csv = None
   inner_df = None
   cache_name = ""
   actions = ""
-  
-  def __init__(self, source_csv_path, actions="be", bootstrap_confidence=0.9, entropy_batch_size=2, entropy_linear_size=25,cache=True):
+
+  def __init__(self, source_csv_path, actions="bem", bootstrap_confidence=0.9, entropy_batch_size=2, entropy_linear_size=25, cache=True,median_interval_confidence=0.95):
     self.source_csv = source_csv_path
-    self.cache_name = PickleWrapper.getCachedName(self.source_csv,actions)
+    self.cache_name = PickleWrapper.getCachedName(self.source_csv, actions)
     if PickleWrapper.exists(self.cache_name):
       self.inner_df = PickleWrapper.load(self.cache_name)
       self.actions = actions
@@ -202,24 +222,28 @@ class Experiment:
       if 'b' in actions:
         self.do_bootstrap(bootstrap_confidence)
       if 'e' in actions:
-        self.do_entropy(entropy_batch_size,entropy_linear_size)
+        self.do_entropy(entropy_batch_size, entropy_linear_size)
+      if 'm' in actions:
+        self.do_median_confidence_interval(median_interval_confidence)
       if cache:
-        self.cache_name = PickleWrapper.getCachedName(self.source_csv,self.actions)
-        PickleWrapper.save(self.cache_name,self.inner_df)
+        self.cache_name = PickleWrapper.getCachedName(
+            self.source_csv, self.actions)
+        PickleWrapper.save(self.cache_name, self.inner_df)
+
   @classmethod
-  def from_dataframe(cls,dataframe,actions,cache_name):
+  def from_dataframe(cls, dataframe, actions, cache_name):
     instance = cls.__new__(cls)  # Create instance without calling __init__
     instance.source_csv = ""
-    instance.inner_df = dataframe.copy()  # or just dataframe if you don't need a copy
+    # or just dataframe if you don't need a copy
+    instance.inner_df = dataframe.copy()
     instance.actions = actions
     instance.cache_name = cache_name
-    
+
     if not PickleWrapper.exists(instance.cache_name):
         PickleWrapper.save(instance.cache_name, instance.inner_df)
-    
+
     return instance
-    
-  
+
   def loadDataframe(self):
     self.inner_df = pd.read_csv(self.source_csv)
     self.inner_df["warmup_duration"] = self.inner_df["warmup_duration"].apply(
@@ -229,7 +253,7 @@ class Experiment:
     self.inner_df['warmup_duration'] = self.inner_df['warmup_duration'].apply(
         lambda x: [] if np.array_equal(np.asarray(x), np.array([0.0])) else x)
 
-## Adds the folowing rows to the Experiment dataframe :
+# Adds the folowing rows to the Experiment dataframe :
 # ci_low, ci_high, ci_level, bootstrap_data, std_error
   def do_bootstrap(self, confidence=0.9):
     if "b" not in self.actions:
@@ -238,7 +262,7 @@ class Experiment:
       self.inner_df['ci_level'] = confidence
       self.inner_df['bootstrap_data'] = None
       self.inner_df['std_error'] = None
-      for idx in tqdm(self.inner_df.index):
+      for idx in tqdm(self.inner_df.index,desc="bootstrap"):
           conf, data, std = Bootstraping.standard_deviation(
               self.inner_df.loc[idx]["repetitions_duration"], confidence)
           self.inner_df.at[idx, 'ci_low'] = conf.low
@@ -247,7 +271,24 @@ class Experiment:
           self.inner_df.at[idx, 'std_error'] = std
       self.actions += "b"
 
-## Adds the folowing rows to the Experiment dataframe :
+  # Adds the following rows to the Experiment dataframe :
+  # median_ci_low
+  # median_ci_high
+
+
+  def do_median_confidence_interval(self, confidence=0.95):
+    p_median = 0.5
+    if "m" not in self.actions:
+      self.inner_df["median_ci_low"] = None
+      self.inner_df["median_ci_high"] = None
+      for idx in tqdm(self.inner_df.index,desc="median_CI"):
+        ci_low, ci_high = ConfidenceIntervalQuartiles.confidence_interval_array(
+            self.inner_df.loc[idx]["repetitions_duration"], p_median, confidence)
+        self.inner_df.at[idx, 'median_ci_low'] = ci_low
+        self.inner_df.at[idx, 'median_ci_high'] = ci_high
+    self.actions += "m"
+
+# Adds the folowing rows to the Experiment dataframe :
 # slope, r2, entropy, stable_entropy, batch_entropy, batch_linear
   def do_entropy(self, batch_entropy_size=2, batch_linear_size=25):
     if "e" not in self.actions:
@@ -260,7 +301,7 @@ class Experiment:
       self.inner_df['batch_entropy'] = batch_entropy_size
       self.inner_df['batch_linear'] = batch_linear_size
 
-      for idx in tqdm(self.inner_df.index):
+      for idx in tqdm(self.inner_df.index,desc="entropy"):
           entropies, r2s, stables, slopes = Entropy.batched_entropy(
               self.inner_df.loc[idx], batch_entropy_size=batch_entropy_size, batch_linear_size=batch_linear_size)
           self.inner_df.at[idx, 'slope'] = slopes
@@ -270,48 +311,47 @@ class Experiment:
           self.inner_df
       self.actions += "e"
 
-  
-  def filter(self,exp_filter:Filter):
+  def filter(self, exp_filter: Filter):
     temp_df = self.inner_df.copy()
     columns = temp_df.columns
     used = exp_filter.get_used()
     duplicates = []
-    for key, val in exp_filter.defaults.items():        
+    for key, val in exp_filter.defaults.items():
       if key in columns and key not in used:
-        if val == "Reference":  
-          temp_df = temp_df[temp_df[key].str.contains("Reference",na=False)]
+        if val == "Reference":
+          temp_df = temp_df[temp_df[key].str.contains("Reference", na=False)]
         else:
-          temp_df = temp_df[temp_df[key]==val]
-        _check_nonempty(temp_df,key)
+          temp_df = temp_df[temp_df[key] == val]
+        _check_nonempty(temp_df, key)
         duplicates.append(key)
     duplicates_used = []
     for key_sub, val_sub in exp_filter.subsets.items():
-      if key_sub in columns :
-        if not isinstance(val_sub,list):
+      if key_sub in columns:
+        if not isinstance(val_sub, list):
             temp_df = temp_df[temp_df[key_sub].str.contains(val_sub)]
-            _check_nonempty(temp_df,key)
+            _check_nonempty(temp_df, key)
         else:
           temp_df = temp_df[temp_df[key_sub].isin(val_sub)]
-          _check_nonempty(temp_df,key_sub)
+          _check_nonempty(temp_df, key_sub)
     for item in used:
       if item not in columns:
         raise ValueError("column on the axis are not in the dataframe :"+item)
       if hashable(temp_df[item].iloc[0]):
         duplicates_used.append(item)
     duplicates.extend(duplicates_used)
-    df_unique = temp_df.drop_duplicates(subset=duplicates,keep="first")
+    df_unique = temp_df.drop_duplicates(subset=duplicates, keep="first")
     if exp_filter.on_y.explode and exp_filter.on_y.used:
       df_unique = df_unique.explode(exp_filter.on_y.axe)
     return df_unique.copy()
 
-  def fix_values(self,exp_filter:Filter,columns_to_fix:list):
+  def fix_values(self, exp_filter: Filter, columns_to_fix: list):
     temp_df = self.inner_df.copy()
     for column in columns_to_fix:
       if column in self.inner_df.columns:
-        temp_df = temp_df[temp_df[column]==exp_filter.defaults[column]]
-        _check_nonempty(temp_df,column)
+        temp_df = temp_df[temp_df[column] == exp_filter.defaults[column]]
+        _check_nonempty(temp_df, column)
     return temp_df
-    
+
   @classmethod
   def concat_experiments(cls, *experiments: Self) -> Self:
       if len(experiments) < 2:
@@ -320,35 +360,37 @@ class Experiment:
       for exp in experiments[1:]:
         if exp.actions != first_actions:
           raise ValueError(
-            f"All experiments must share the same actions. "
-            f"Found: {[exp.actions for exp in experiments]}"
-            )
+              f"All experiments must share the same actions. "
+              f"Found: {[exp.actions for exp in experiments]}"
+          )
       csv_names = [exp.source_csv for exp in experiments]
-      cache_name = PickleWrapper.getCachedComparisonName(*csv_names, attributes=experiments[0].actions)
+      cache_name = PickleWrapper.getCachedComparisonName(
+          *csv_names, attributes=experiments[0].actions)
       dfs_to_concat = [
-        exp.inner_df.assign(exp=_exp_name_from_csv_path(exp.source_csv))
-        for exp in experiments
+          exp.inner_df.assign(exp=_exp_name_from_csv_path(exp.source_csv))
+          for exp in experiments
       ]
       newdf = pd.concat(dfs_to_concat, ignore_index=True)
       return cls.from_dataframe(newdf, experiments[0].actions, cache_name)
-  
-  
+
   @classmethod
-  def compare_experiments_ecdf(cls,exp1:Self,exp2:Self,default_var=DEFAULT_INPUTS)->Self:
+  def compare_experiments_ecdf(cls, exp1: Self, exp2: Self, default_var=DEFAULT_INPUTS) -> Self:
     variables = []
     for def_input in DEFAULT_INPUTS:
-      if def_input in exp1.inner_df.columns :
+      if def_input in exp1.inner_df.columns:
          variables.append(def_input)
 
     df1 = exp1.inner_df.copy()
     df2 = exp2.inner_df.copy()
     df1["name1"] = _exp_name_from_csv_path(exp1.source_csv)
     df2["name2"] = _exp_name_from_csv_path(exp2.source_csv)
-    df1.rename(columns={"repetitions_duration":"repetitions_duration1"},inplace=True)
-    df2.rename(columns={"repetitions_duration":"repetitions_duration2"},inplace=True)
-    df1_small = df1[variables + ["repetitions_duration1","name1"]]
-    df2_small = df2[variables + ["repetitions_duration2","name2"]]
-    merged = pd.merge(df1_small,df2_small,on=variables,how="inner")
+    df1.rename(
+        columns={"repetitions_duration": "repetitions_duration1"}, inplace=True)
+    df2.rename(
+        columns={"repetitions_duration": "repetitions_duration2"}, inplace=True)
+    df1_small = df1[variables + ["repetitions_duration1", "name1"]]
+    df2_small = df2[variables + ["repetitions_duration2", "name2"]]
+    merged = pd.merge(df1_small, df2_small, on=variables, how="inner")
     merged["ks"] = pd.Series(dtype=float)
     merged["total_area"] = pd.Series(dtype=float)
     merged["signed_area"] = pd.Series(dtype=float)
@@ -362,12 +404,34 @@ class Experiment:
         merged.loc[i, "total_area"] = total
         merged.loc[i, "signed_area"] = np.abs(signed)
         merged.loc[i, "cvm"] = EcdfMetrics.cvm_distance(ecdf1, ecdf2)
-        merged.loc[i, "superiority"] = EcdfMetrics.prob_superiority(ecdf1, ecdf2)
-    merged["repetitions_duration_mean_difference"] = np.abs((merged["repetitions_duration1"].apply(np.mean) - merged["repetitions_duration2"].apply(np.mean))/merged["repetitions_duration1"].apply(np.mean))
+        merged.loc[i, "superiority"] = EcdfMetrics.prob_superiority(
+            ecdf1, ecdf2)
+    merged["repetitions_duration_mean_difference"] = np.abs((merged["repetitions_duration1"].apply(
+        np.mean) - merged["repetitions_duration2"].apply(np.mean))/merged["repetitions_duration1"].apply(np.mean))
     final_df = EcdfMetrics.rank_configurations(merged)
-    csv_names = [exp1.source_csv,exp2.source_csv]
-    cache_name = PickleWrapper.getCachedComparisonName(*csv_names, attributes="ecdf")
+    csv_names = [exp1.source_csv, exp2.source_csv]
+    cache_name = PickleWrapper.getCachedComparisonName(
+        *csv_names, attributes="ecdf")
     return cls.from_dataframe(final_df, "ecdf", cache_name)
+
+
+class ConfidenceIntervalQuartiles:
+  @staticmethod
+  # quartile=0.5 -> median, confidence=0.95 -> 95% confidence
+  def confidence_interval_array(array, quartile=0.5, confidence=0.95):
+    zscore = scistats.norm.ppf(1 - (1-confidence)/2)
+    n = len(array)
+    new_arr = np.sort(array.copy())
+    j, k = ConfidenceIntervalQuartiles.get_index_confidence_interval(
+        n, quartile, zscore)
+    return (new_arr[j-1], new_arr[k-1]) # J and K are 0 index start
+
+  @staticmethod
+  def get_index_confidence_interval(n, p, zscore):
+    j = int(np.floor((n*p)-(zscore*np.sqrt(n*p*(1-p)))))
+    k = int(np.ceil((n*p)+(zscore*np.sqrt(n*p*(1-p))))+1)
+  
+    return (j, k)
 
 
 class Bootstraping:
@@ -375,6 +439,7 @@ class Bootstraping:
   def standard_deviation(array, confidence=0.9):
     res = scistats.bootstrap((array,), np.std, confidence_level=confidence)
     return res.confidence_interval, res.bootstrap_distribution, res.standard_error
+
 
 class Entropy:
   @staticmethod
@@ -436,10 +501,11 @@ class Entropy:
 
 
 class Ecdf:
-    sorted_in:list
-    base_array:list
-    name:str
-    def __init__(self,array,name:str=""):
+    sorted_in: list
+    base_array: list
+    name: str
+
+    def __init__(self, array, name: str = ""):
         self.name = name
         self.base_array = array
         sorted = np.sort(array)
@@ -447,23 +513,25 @@ class Ecdf:
         self.sorted_in, counts = np.unique(sorted, return_counts=True)
         cumulative_counts = np.cumsum(counts)
         self.cdf = cumulative_counts / self.sample_size
-        
+
     def at(self, continuous_val):
-        index = np.searchsorted(self.sorted_in, continuous_val, side='right') - 1
+        index = np.searchsorted(
+            self.sorted_in, continuous_val, side='right') - 1
         # Ensure index is clipped to [-1, last_valid]
         index = np.clip(index, -1, len(self.cdf) - 1)
-        
+
         out = np.zeros_like(index, dtype=float)
         mask = index >= 0
         out[mask] = self.cdf[index[mask]]
         return out
 
-    def plot(self,color=None):
-        plt.step(self.sorted_in,self.cdf,color=color,label=self.name)
-        
+    def plot(self, color=None):
+        plt.step(self.sorted_in, self.cdf, color=color, label=self.name)
 
-class EcdfMetrics : 
-  METRICS_NAMES = ["ks","total_area","signed_area","cvm","superiority"]
+
+class EcdfMetrics:
+  METRICS_NAMES = ["ks", "total_area", "signed_area", "cvm", "superiority"]
+
   @staticmethod
   def k_s_test(ecdf1: Ecdf, ecdf2: Ecdf) -> float:
       """
@@ -473,7 +541,7 @@ class EcdfMetrics :
       f1 = ecdf1.at(x)
       f2 = ecdf2.at(x)
       return np.max(np.abs(f1 - f2))
-    
+
   @staticmethod
   def ecdf_area(ecdf1: Ecdf, ecdf2: Ecdf):
     """
@@ -511,17 +579,17 @@ class EcdfMetrics :
     return T
 
   @staticmethod
-  def prob_superiority(ecdf1:Ecdf,ecdf2:Ecdf):
+  def prob_superiority(ecdf1: Ecdf, ecdf2: Ecdf):
     x = np.unique(np.concatenate([ecdf1.sorted_in, ecdf2.sorted_in]))
     F1 = ecdf1.at(x)
     F2 = ecdf2.at(x)
     f2 = np.diff(np.concatenate([[0], F2]))
     return np.sum(f2 * F1)
-  
+
   ECDF_COMPARISON_SCORE = "Ecdf_Comparison_Score"
-  
+
   @staticmethod
-  def rank_configurations(dataframe:pd.DataFrame):
+  def rank_configurations(dataframe: pd.DataFrame):
     old_columns = dataframe.columns.to_list()
     METRICS_LOWER_IS_BETTER = ['ks', 'total_area', 'signed_area', 'cvm']
     METRICS_CLOSEST_TO_05 = ['superiority']
@@ -529,14 +597,15 @@ class EcdfMetrics :
     for metric in METRICS_CLOSEST_TO_05:
       dataframe[f"{metric}_distance"] = np.abs(dataframe[metric] - 0.5)
       METRICS_LOWER_IS_BETTER.append(f"{metric}_distance")
-    
+
     for metric in METRICS_LOWER_IS_BETTER:
       min_val = dataframe[metric].min()
       max_val = dataframe[metric].max()
       # Normalize and invert: 1 - (M - Min) / (Max - Min)
-      dataframe[f'{metric}_norm'] = 1 - (dataframe[metric] - min_val) / (max_val - min_val)
+      dataframe[f'{metric}_norm'] = 1 - \
+          (dataframe[metric] - min_val) / (max_val - min_val)
       all_metrics.append(f'{metric}_norm')
-      
-    dataframe[EcdfMetrics.ECDF_COMPARISON_SCORE] = dataframe.apply(lambda row: sum(row[col] for col in all_metrics),axis=1)
+
+    dataframe[EcdfMetrics.ECDF_COMPARISON_SCORE] = dataframe.apply(
+        lambda row: sum(row[col] for col in all_metrics), axis=1)
     return dataframe[old_columns+[EcdfMetrics.ECDF_COMPARISON_SCORE]]
-  
