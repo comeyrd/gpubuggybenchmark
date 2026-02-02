@@ -16,8 +16,8 @@ def subtitle(_filter:Filter)->int:
     plt.text(0.5, 1.01, title, ha='center', va='bottom', transform=plt.gca().transAxes, fontsize=8)
     return height
 
-def do_title(title,sub_height):
-    title,title_height = wrap_title(title,35)
+def do_title(title,sub_height,wrap=35):
+    title,title_height = wrap_title(title,wrap)
     plt.title(title,y=1.05 + 0.01*(title_height + sub_height))
 
 ## Filter : set hue_name and y_name
@@ -137,7 +137,7 @@ def compare_std_std_precision(exp:Experiment,_filter:Filter,precision=0.0005):
     x_lbls.extend(rep_arr)
     plt.xticks(ticks=np.arange(len(x_lbls)), labels=x_lbls) 
     middle = np.mean(((df["ci_high"] - df["ci_low"]) / 2) + df["ci_low"])
-    interval_plot(0,middle + precision/2,middle - precision/2,color="red",stable=True)
+    interval_plot(0,middle + precision,middle - precision,color="red",stable=True)
     hue_ = df[_filter.on_hue.axe].unique()
     colors = sns.color_palette("tab10", n_colors=len(hue_))
     for i, u_hue in enumerate(hue_):
@@ -317,7 +317,7 @@ def compare_median_ci_precision(exp:Experiment,_filter:Filter,precision=0.0005):
     x_lbls.extend(rep_arr)
     plt.xticks(ticks=np.arange(len(x_lbls)), labels=x_lbls) 
     middle = np.mean(((df["median_ci_high"] - df["median_ci_low"]) / 2) + df["median_ci_low"])
-    interval_plot(0,middle + precision/2,middle - precision/2,color="red",stable=True)
+    interval_plot(0,middle + precision,middle - precision,color="red",stable=True)
     hue_ = df[_filter.on_hue.axe].unique()
     colors = sns.color_palette("tab10", n_colors=len(hue_))
     for i, u_hue in enumerate(hue_):
@@ -332,7 +332,7 @@ def compare_median_ci_precision(exp:Experiment,_filter:Filter,precision=0.0005):
             if (temp_sq.iloc[0].median_ci_high - temp_sq.iloc[0].median_ci_low) <=precision:
                 stable_ = True
             interval_plot(j+1,temp_sq.iloc[0].median_ci_high, temp_sq.iloc[0].median_ci_low,color=colors[i],stable=stable_)  
-    title = "Measure precision vs 95percent median confidence interval"
+    title = "Measure precision vs 90% median confidence interval"
     if _filter.on_hue.used : 
         title += f", comparing {_filter.on_hue.axe}"
     sub_height = subtitle(_filter)

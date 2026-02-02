@@ -85,11 +85,8 @@ class axisFilter:
   def __str__(self):
     return f'{{axe : {self.axe}, used : {self.used}, exp : {self.explode}}}'
 
-
-DEFAULT_INPUTS = ["kernel", "version", "repetitions",
-                  "warmups", "work_size", "flush_l2", "blocking", "exp"]
-
-
+PRETTY_NAMES = {"median_ci_high":"Median Confidence Interval (high)","median_ci_low":"Median Confidence Interval (low)","batch_linear":"Entropy Linear Batch","batch_entropy":"Entropy Batch","stable_entropy":"Stable","entropy":"Entropy","r2":"R2","slope":"Slope","std_error":"Standard Error","bootstrap_data":"Bootstrap Data","ci_level":"Confidence Level","ci_high":"Confidence Interval (high)","ci_low":"Confidence Interval (low)","kernel":"Kernel","version":"Version","repetitions":"Repetitions","work_size":"Work Size","flush_l2":"Flusing L2 Cache","blocking":"Enqueing Kernel","exp":"Experience","ks":"K-S Statistic (D)","total_area":"Absolute Area (ms)","signed_area":"Signed Area (ms)","cvm":"Cramer-von-mises (D)","superiority":"Probability of Superiority (D)"}
+DEFAULT_INPUTS = ["kernel","version","repetitions","warmups","work_size","flush_l2","blocking","exp"]
 class Filter:
   defaults: dict = {}
   on_x: axisFilter = axisFilter()
@@ -211,7 +208,7 @@ class Experiment:
   cache_name = ""
   actions = ""
 
-  def __init__(self, source_csv_path, actions="bem", bootstrap_confidence=0.9, entropy_batch_size=2, entropy_linear_size=25, cache=True,median_interval_confidence=0.95):
+  def __init__(self, source_csv_path, actions="bem", bootstrap_confidence=0.9, entropy_batch_size=2, entropy_linear_size=25, cache=True,median_interval_confidence=0.90):
     self.source_csv = source_csv_path
     self.cache_name = PickleWrapper.getCachedName(self.source_csv, actions)
     if PickleWrapper.exists(self.cache_name):
@@ -276,7 +273,7 @@ class Experiment:
   # median_ci_high
 
 
-  def do_median_confidence_interval(self, confidence=0.95):
+  def do_median_confidence_interval(self, confidence=0.90):
     p_median = 0.5
     if "m" not in self.actions:
       self.inner_df["median_ci_low"] = None
@@ -417,8 +414,8 @@ class Experiment:
 
 class ConfidenceIntervalQuartiles:
   @staticmethod
-  # quartile=0.5 -> median, confidence=0.95 -> 95% confidence
-  def confidence_interval_array(array, quartile=0.5, confidence=0.95):
+  # quartile=0.5 -> median, confidence=0.90 -> 90% confidence
+  def confidence_interval_array(array, quartile=0.5, confidence=0.90):
     zscore = scistats.norm.ppf(1 - (1-confidence)/2)
     n = len(array)
     new_arr = np.sort(array.copy())
